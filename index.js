@@ -1,7 +1,20 @@
 require('dotenv').config();
+const path = require('path');
+
+// Ensure FFmpeg is registered in PATH & FFMPEG_PATH for Discord voice audio decoding
+try {
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic) {
+    process.env.FFMPEG_PATH = ffmpegStatic;
+    const ffmpegDir = path.dirname(ffmpegStatic);
+    process.env.PATH = `${ffmpegDir}${path.delimiter}${process.env.PATH}`;
+  }
+} catch (e) {
+  console.warn('[FFMPEG INIT WARNING]:', e.message);
+}
+
 const { Client, GatewayIntentBits, Partials, Collection, REST, Routes } = require('discord.js');
 const fs = require('fs');
-const path = require('path');
 const config = require('./config.json');
 
 // Initialize Client with all necessary intents

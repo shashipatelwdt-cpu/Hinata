@@ -15,6 +15,17 @@ const {
 } = require('discord.js');
 const { spawn } = require('child_process');
 const path = require('path');
+
+// Ensure FFmpeg is configured for audio decoding
+try {
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic) {
+    process.env.FFMPEG_PATH = ffmpegStatic;
+    const ffmpegDir = path.dirname(ffmpegStatic);
+    process.env.PATH = `${ffmpegDir}${path.delimiter}${process.env.PATH}`;
+  }
+} catch (e) {}
+
 const play = require('play-dl');
 const config = require('../../config.json');
 const { getYtDlpPath } = require('./ytUtils');
@@ -54,11 +65,13 @@ class GuildQueue {
   }
 
   setupListeners() {
-    // Player idle -> song ended or queue finished
-    this.player.on(AudioPlayerStatus.Idle, () => {
-      this.isPlaying = false;
-      this.stopLiveTimer();
-      this.handleSongEnd();
+    // Player idle -> only handle if we were previously playing a track
+    this.player.on(AudioPlayerStatus.Idle, (oldState) => {
+      if (oldState.status === AudioPlayerStatus.Playing || oldState.status === AudioPlayerStatus.Buffering) {
+        this.isPlaying = false;
+        this.stopLiveTimer();
+        this.handleSongEnd();
+      }
     });
 
     // Player error handling
@@ -230,6 +243,12 @@ class GuildQueue {
         inputType: streamType,
         inlineVolume: true
       });
+
+      if (resource.playStream) {
+        resource.playStream.on('error', (err) => {
+          console.warn('[AUDIO RESOURCE STREAM ERROR]:', err.message);
+        });
+      }
 
       resource.volume.setVolume(this.volume / 100);
       this.currentResource = resource;
