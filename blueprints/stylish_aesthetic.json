@@ -1,0 +1,78 @@
+{
+  "id": "stylish-aesthetic",
+  "name": "✨ ✦ VORTEX & VELVET — Ultra-Stylish Aesthetic Lounge ✦ ✨",
+  "description": "Premium, modern & sleek Discord aesthetic server template with minimalist borders, pastel hierarchy, cozy hangout channels, and auto systems.",
+  "category": "✨ Ultra-Aesthetic & Modern",
+  "roles": [
+    { "name": "👑 ✦ ┋ Founder", "color": "#FFB6C1", "hoist": true, "mentionable": false, "isOwnerRole": true },
+    { "name": "🛡️ ✦ ┋ Management", "color": "#B5EAD7", "hoist": true, "mentionable": false, "isAdminRole": true },
+    { "name": "⚔️ ✦ ┋ Moderator", "color": "#C7CEEA", "hoist": true, "mentionable": true, "isModRole": true },
+    { "name": "💎 ✦ ┋ Elite VIP", "color": "#FFDAC1", "hoist": true, "mentionable": false },
+    { "name": "🚀 ✦ ┋ Server Booster", "color": "#F47FFF", "hoist": true, "mentionable": false },
+    { "name": "🎨 ✦ ┋ Creator & Artist", "color": "#E2F0CB", "hoist": true, "mentionable": false },
+    { "name": "🤖 ✦ ┋ System Bots", "color": "#74B9FF", "hoist": true, "mentionable": false, "isBotRole": true },
+    { "name": "📢 ✦ ┋ Announcements Ping", "color": "#7289DA", "hoist": false, "mentionable": true },
+    { "name": "🎁 ✦ ┋ Giveaways Ping", "color": "#FDCB6E", "hoist": false, "mentionable": true },
+    { "name": "👥 ✦ ┋ Members", "color": "#DFE6E9", "hoist": false, "mentionable": false, "isMemberRole": true }
+  ],
+  "categories": [
+    {
+      "name": "╭・୨ ✦ ୧・INFORMATION",
+      "channels": [
+        { "name": "⌗・welcome", "type": "text", "isWelcomeChannel": true, "topic": "✨ Welcome to our community! Enjoy your stay." },
+        { "name": "⌗・rules", "type": "text", "topic": "📜 Official community guidelines & server rules" },
+        { "name": "⌗・announcements", "type": "announcement", "topic": "📢 Important server updates, events & news" },
+        { "name": "⌗・roles", "type": "text", "topic": "🎭 Pick your self-roles, colors & notification pings" },
+        { "name": "⌗・boosts", "type": "text", "topic": "💎 Exclusive perks for server boosters & supporters" }
+      ]
+    },
+    {
+      "name": "╭・୨ 💬 ୧・COMMUNITY",
+      "channels": [
+        { "name": "💬・main-chat", "type": "text", "topic": "💭 Primary hangout chat for friendly conversations" },
+        { "name": "📸・media-gallery", "type": "text", "topic": "📷 Share photos, artwork, setups & daily life" },
+        { "name": "🐸・memes-and-clips", "type": "text", "topic": "🎬 Wholesome memes, funny moments & short clips" },
+        { "name": "🤖・bot-commands", "type": "text", "topic": "🤖 Use bot commands & play mini games here" }
+      ]
+    },
+    {
+      "name": "╭・୨ 🎮 ୧・GAMING & CHILL",
+      "channels": [
+        { "name": "🎯・looking-for-group", "type": "text", "topic": "🤝 Find teammates to squad up in games" },
+        { "name": "🎮・game-talk", "type": "text", "topic": "🕹️ General gaming discussions, clips & updates" },
+        { "name": "🎵・music-commands", "type": "text", "topic": "🎶 Queue music, lo-fi beats & share playlists" }
+      ]
+    },
+    {
+      "name": "╭・୨ 📩 ୧・SUPPORT",
+      "channels": [
+        { "name": "📩・open-ticket", "type": "text", "topic": "🎫 Contact staff for assistance, reports, or queries" },
+        { "name": "💡・suggestions", "type": "text", "topic": "✨ Share ideas & feedback to improve the server" }
+      ]
+    },
+    {
+      "name": "╭・୨ 🔊 ୧・VOICE ROOMS",
+      "channels": [
+        { "name": "☕・Lo-Fi Lounge", "type": "voice" },
+        { "name": "🌸・Cozy Chat [4]", "type": "voice", "userLimit": 4 },
+        { "name": "🎮・Duo Gaming [2]", "type": "voice", "userLimit": 2 },
+        { "name": "🎮・Squad Gaming [4]", "type": "voice", "userLimit": 4 },
+        { "name": "🎵・Music Stream", "type": "voice" },
+        { "name": "💤・AFK / Sleeping", "type": "voice" }
+      ]
+    },
+    {
+      "name": "╭・୨ 🛡️ ୧・STAFF ONLY",
+      "permissions": [
+        { "roleName": "👑 ✦ ┋ Founder", "allow": ["ViewChannel", "SendMessages"] },
+        { "roleName": "🛡️ ✦ ┋ Management", "allow": ["ViewChannel", "SendMessages"] },
+        { "roleName": "⚔️ ✦ ┋ Moderator", "allow": ["ViewChannel", "SendMessages"] }
+      ],
+      "channels": [
+        { "name": "🔒・staff-chat", "type": "text", "topic": "🛡️ Staff communication & meeting notes" },
+        { "name": "📜・mod-logs", "type": "text", "isModLogChannel": true, "topic": "🛡️ Automated audit log stream" },
+        { "name": "🔊・Staff Call", "type": "voice" }
+      ]
+    }
+  ]
+}

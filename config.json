@@ -1,0 +1,75 @@
+{
+  "botName": "Hinata",
+  "defaultPrefix": "h",
+  "fakeServerCount": 5434,
+  "presence": {
+    "status": "online",
+    "activityType": "Watching",
+    "activityText": "5434 server / setup",
+    "rotating": true,
+    "activities": [
+      { "name": "5434 server / setup", "type": "Watching" },
+      { "name": "/help | 5434 servers", "type": "Watching" },
+      { "name": "/setup • 5434 servers", "type": "Watching" },
+      { "name": "5434 server / setup | /template", "type": "Watching" }
+    ]
+  },
+  "embedColors": {
+    "primary": "#5865F2",
+    "success": "#57F287",
+    "warning": "#FEE75C",
+    "danger": "#ED4245",
+    "info": "#00B0FF",
+    "neutral": "#2B2D31"
+  },
+  "defaultSettings": {
+    "automod": {
+      "antiLink": false,
+      "antiInvite": true,
+      "antiSpam": true,
+      "antiMassMention": true,
+      "maxMentions": 5,
+      "antiProfanity": true,
+      "whitelistedRoles": [],
+      "whitelistedChannels": [],
+      "customBadWords": []
+    },
+    "autorole": {
+      "enabled": false,
+      "humanRoleId": null,
+      "botRoleId": null
+    },
+    "welcome": {
+      "enabled": false,
+      "channelId": null,
+      "roleId": null,
+      "botRoleId": null,
+      "message": "Welcome {user} to **{server}**! You are our **#{count}** member. 🎉",
+      "dmWelcome": false,
+      "dmMessage": "Hey {username}, welcome to **{server}**! Make sure to read the rules and have fun!",
+      "color": "#5865F2",
+      "showButtons": true
+    },
+    "leave": {
+      "enabled": false,
+      "channelId": null,
+      "message": "**{username}** just left **{server}**. We now have **{count}** members. 👋",
+      "color": "#ED4245"
+    },
+    "tickets": {
+      "categoryId": null,
+      "supportRoleId": null,
+      "logChannelId": null
+    },
+    "modlogs": {
+      "channelId": null,
+      "enabled": true
+    },
+    "music": {
+      "defaultVolume": 100,
+      "maxQueueSize": 100,
+      "idleTimeoutMinutes": 3,
+      "leaveOnEmpty": true
+    }
+  }
+}

@@ -1,0 +1,890 @@
+{
+  "guild_settings": {
+    "1440300728001495052": {
+      "guild_id": "1440300728001495052",
+      "modlog_channel": null,
+      "welcome": {},
+      "leave": {},
+      "automod": {},
+      "ticket": {},
+      "selfroles": {
+        "selfrole_menu_platforms_1786972367489": {
+          "type": "platforms",
+          "roles": [
+            {
+              "id": "1538898380498141384",
+              "name": "PC Gamer"
+            },
+            {
+              "id": "1538898382658076692",
+              "name": "PlayStation"
+            },
+            {
+              "id": "1538898384851697664",
+              "name": "Xbox"
+            },
+            {
+              "id": "1538898386973884487",
+              "name": "Nintendo Switch"
+            },
+            {
+              "id": "1538898389339738202",
+              "name": "Mobile Gamer"
+            }
+          ]
+        }
+      },
+      "autorole": {
+        "enabled": false,
+        "humanRoleId": null,
+        "botRoleId": null
+      },
+      "rules": {}
+    },
+    "1505578928494874674": {
+      "guild_id": "1505578928494874674",
+      "modlog_channel": "1539876723695288410",
+      "welcome": {
+        "enabled": true,
+        "channelId": "1539876649594650704",
+        "roleId": "1539876627402592286",
+        "botRoleId": "1538898934943187034",
+        "message": "Welcome {user} to **{server}**! You are our **#{count}** member. 🎉",
+        "dmWelcome": false,
+        "banner": null
+      },
+      "leave": {},
+      "automod": {
+        "antiLink": false,
+        "antiInvite": true,
+        "antiSpam": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "whitelistedRoles": [],
+        "whitelistedChannels": [],
+        "customBadWords": [],
+        "antiGhostPing": true
+      },
+      "ticket": {},
+      "selfroles": {
+        "selfrole_menu_platforms_1786974033707": {
+          "type": "platforms",
+          "roles": [
+            {
+              "id": "1538905366216048670",
+              "name": "PC Gamer"
+            },
+            {
+              "id": "1538905369252986922",
+              "name": "PlayStation"
+            },
+            {
+              "id": "1538905371803000933",
+              "name": "Xbox"
+            },
+            {
+              "id": "1538905374105542656",
+              "name": "Nintendo Switch"
+            },
+            {
+              "id": "1538905376148426886",
+              "name": "Mobile Gamer"
+            }
+          ]
+        },
+        "selfrole_menu_notifs_1787205626432": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1539876743899381822",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1538384405117014197",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1539876745677897739",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1539876748253204540",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1539876627402592286",
+        "botRoleId": "1538898934943187034"
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1539876653260607510",
+        "verifyRoleId": "1539876627402592286",
+        "templateId": "community",
+        "messageId": "1539876734369931286"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1539876758361350164",
+        "channels": {
+          "totalMembers": "1539876760815013889",
+          "humanMembers": "1539876763742634017",
+          "botMembers": "1539876766741692467",
+          "boosts": "1539876769690296320",
+          "goal": "1539876772995137560"
+        },
+        "lastUpdated": 1788000671083
+      }
+    },
+    "1484076210412851324": {
+      "guild_id": "1484076210412851324",
+      "modlog_channel": "1541853459781910530",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1541110258859253762",
+        "botRoleId": "1541853323181695096"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1541853355129970770",
+        "roleId": "1541110258859253762",
+        "botRoleId": "1541853323181695096"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "antiLink": false,
+        "filterAdmins": false,
+        "customBadWords": []
+      },
+      "ticket": {},
+      "selfroles": {},
+      "rules": {
+        "enabled": true,
+        "channelId": "1541853362754949280",
+        "verifyRoleId": "1541110258859253762",
+        "templateId": "gaming",
+        "messageId": "1541853485186814023"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1541853523669549137",
+        "channels": {
+          "totalMembers": "1541853526462955520",
+          "humanMembers": "1541853529537519647",
+          "botMembers": "1541853532121079909",
+          "boosts": "1541853534977523713",
+          "goal": "1541853545727524987"
+        },
+        "lastUpdated": 1788000671074
+      },
+      "channel_muted_bots": {
+        "1541869960140300338": [
+          {
+            "botId": "1521446122424369233",
+            "botTag": "NOMI#8627",
+            "channelId": "1541869960140300338",
+            "reason": "d",
+            "modId": "1429361029179113517",
+            "mutedAt": "2026-08-29T07:41:43.473Z"
+          }
+        ]
+      }
+    },
+    "1436258906589368322": {
+      "guild_id": "1436258906589368322",
+      "modlog_channel": "1540992921640108063",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1540992689271480461",
+        "botRoleId": "1540992685383614506"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1540992707005128736",
+        "roleId": "1540992689271480461",
+        "botRoleId": "1540992685383614506"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "antiLink": false,
+        "filterAdmins": false,
+        "customBadWords": []
+      },
+      "ticket": {
+        "categoryId": "1540992933388488794",
+        "supportRoleId": "1540992653250789448"
+      },
+      "selfroles": {
+        "selfrole_menu_notifs_1787471752473": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1540992952443346944",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1540992954536042546",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1540992959703547997",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1540992962446757948",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1540992710515630153",
+        "verifyRoleId": "1540992689271480461",
+        "templateId": "esports",
+        "messageId": "1540992941055811665"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1540992972005580800",
+        "channels": {
+          "totalMembers": "1540992974719156256",
+          "humanMembers": "1540992977587937371",
+          "botMembers": "1540992990393147492",
+          "boosts": "1540992992477843548",
+          "goal": "1540992995094958142"
+        },
+        "lastUpdated": 1788000671067
+      }
+    },
+    "1505578149432524821": {
+      "guild_id": "1505578149432524821",
+      "modlog_channel": null,
+      "autorole": {
+        "enabled": false,
+        "humanRoleId": null,
+        "botRoleId": null
+      },
+      "welcome": {},
+      "leave": {},
+      "automod": {},
+      "ticket": {},
+      "selfroles": {},
+      "rules": {}
+    },
+    "1539157929687523368": {
+      "guild_id": "1539157929687523368",
+      "modlog_channel": "1539881191363190784",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1539876147809095720",
+        "botRoleId": "1539159091794939908"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1539881128364875806",
+        "roleId": "1539876147809095720",
+        "botRoleId": "1539159091794939908"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "antiProfanity": true,
+        "maxMentions": 5,
+        "antiLink": false,
+        "filterAdmins": false,
+        "customBadWords": []
+      },
+      "ticket": {},
+      "selfroles": {
+        "selfrole_menu_notifs_1787205506340": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1539159423765971155",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1539159425946755193",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1539159426840141895",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1539159427867746344",
+              "name": "Updates Ping"
+            }
+          ]
+        },
+        "selfrole_menu_notifs_1787206688346": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1539159423765971155",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1539159425946755193",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1539159426840141895",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1539159427867746344",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1539881131434836039",
+        "verifyRoleId": "1539876147809095720",
+        "templateId": "community",
+        "messageId": "1539881197872619571"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1539881221130297354",
+        "channels": {
+          "totalMembers": "1539881223923437669",
+          "humanMembers": "1539881226565976115",
+          "botMembers": "1539881228935635006",
+          "boosts": "1539881230990966834",
+          "goal": "1539881233247371295"
+        },
+        "lastUpdated": 1788000671087
+      }
+    },
+    "1540002515720863864": {
+      "guild_id": "1540002515720863864",
+      "modlog_channel": "1540005196900470795",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1540005090134597682",
+        "botRoleId": "1540005094387355750"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1540005121105330236",
+        "roleId": "1540005090134597682",
+        "botRoleId": "1540005094387355750"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "antiLink": false,
+        "filterAdmins": false,
+        "customBadWords": []
+      },
+      "ticket": {},
+      "selfroles": {
+        "selfrole_menu_notifs_1787236260354": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1540005225883242507",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1540005228709945435",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1540005230496981033",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1540005233227333682",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1540005124846526484",
+        "verifyRoleId": "1540005090134597682",
+        "templateId": "community",
+        "messageId": "1540005211022823575"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1540005253238235197",
+        "channels": {
+          "totalMembers": "1540005255645757552",
+          "humanMembers": "1540005259001208832",
+          "botMembers": "1540005261832355890",
+          "boosts": "1540005264495869973",
+          "goal": "1540005267624955925"
+        },
+        "lastUpdated": 1788000671094
+      }
+    },
+    "1489107089241673862": {
+      "guild_id": "1489107089241673862",
+      "modlog_channel": "1540782752117428288",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1540782316673040486",
+        "botRoleId": "1540782316673040486"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1540782661369593906",
+        "roleId": "1540782316673040486",
+        "botRoleId": "1540782316673040486"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "antiLink": false,
+        "filterAdmins": true,
+        "customBadWords": [],
+        "whitelistedRoles": [],
+        "whitelistedChannels": []
+      },
+      "ticket": {},
+      "selfroles": {
+        "selfrole_menu_notifs_1787421562888": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1540782426211492030",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1540782428421885982",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1540782430556782683",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1540782432993935422",
+              "name": "Updates Ping"
+            }
+          ]
+        },
+        "selfrole_menu_notifs_1787421643744": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1540782426211492030",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1540782428421885982",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1540782430556782683",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1540782432993935422",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1540782642608218193",
+        "verifyRoleId": "1540782607980306544",
+        "templateId": "gaming",
+        "messageId": "1540782762326360117"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1540782790096724038",
+        "channels": {
+          "totalMembers": "1540782793305489448",
+          "humanMembers": "1540782795763355688",
+          "botMembers": "1540782797935878334",
+          "boosts": "1540782800465297580",
+          "goal": "1540782802759450727"
+        },
+        "lastUpdated": 1788000671079
+      }
+    },
+    "1540958511112917084": {
+      "guild_id": "1540958511112917084",
+      "modlog_channel": "1540991991037435904",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1540991764691816452",
+        "botRoleId": "1540991761701273661"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1540991781511106610",
+        "roleId": "1540991764691816452",
+        "botRoleId": "1540991761701273661"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "antiLink": false,
+        "filterAdmins": false,
+        "customBadWords": []
+      },
+      "ticket": {
+        "categoryId": "1540992001414266921",
+        "supportRoleId": "1540991730642587749"
+      },
+      "selfroles": {
+        "selfrole_menu_notifs_1787471528646": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1540992016735797388",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1540992019038470174",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1540992021408387092",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1540992023585099876",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1540991784614756364",
+        "verifyRoleId": "1540991764691816452",
+        "templateId": "esports",
+        "messageId": "1540992007038832651"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1540992033278398485",
+        "channels": {
+          "totalMembers": "1540992035417227295",
+          "humanMembers": "1540992038051512421",
+          "botMembers": "1540992040647532594",
+          "boosts": "1540992042899865650",
+          "goal": "1540992044762398751"
+        },
+        "lastUpdated": 1788000671098
+      }
+    },
+    "1458094788518608919": {
+      "guild_id": "1458094788518608919",
+      "modlog_channel": "1543210731657363526",
+      "autorole": {
+        "enabled": true,
+        "humanRoleId": "1543210636203528243",
+        "botRoleId": "1543210626669740102"
+      },
+      "welcome": {
+        "enabled": true,
+        "channelId": "1543210655530745867",
+        "roleId": "1543210636203528243",
+        "botRoleId": "1543210626669740102"
+      },
+      "leave": {},
+      "automod": {
+        "antiSpam": true,
+        "antiInvite": true,
+        "antiGhostPing": true,
+        "antiMassMention": true,
+        "maxMentions": 5,
+        "antiProfanity": true,
+        "antiLink": false,
+        "filterAdmins": false,
+        "customBadWords": []
+      },
+      "ticket": {
+        "categoryId": "1543210726213160962",
+        "supportRoleId": "1543210614745469008"
+      },
+      "selfroles": {
+        "selfrole_menu_notifs_1788000529924": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1543210761265094740",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1543210764918198323",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1543210768202338364",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1543210771021037644",
+              "name": "Updates Ping"
+            }
+          ]
+        }
+      },
+      "rules": {
+        "enabled": true,
+        "channelId": "1543210658693124117",
+        "verifyRoleId": "1543210636203528243",
+        "templateId": "community",
+        "messageId": "1543210742310895637"
+      },
+      "serverstats": {
+        "enabled": true,
+        "categoryId": "1543210786951012484",
+        "channels": {
+          "totalMembers": "1543210789505073193",
+          "humanMembers": "1543210791531061269",
+          "botMembers": "1543210795020718120",
+          "boosts": "1543210797637828618",
+          "goal": "1543210800125190165"
+        },
+        "lastUpdated": 1788000671102
+      }
+    }
+  },
+  "warnings": [
+    {
+      "id": 1,
+      "guild_id": "1484076210412851324",
+      "user_id": "1528998617233363168",
+      "moderator_id": "1429361029179113517",
+      "reason": "testing",
+      "created_at": "2026-08-17T17:26:34.597Z"
+    }
+  ],
+  "tickets": {},
+  "giveaways": {},
+  "invites": {
+    "test_guild_123": {
+      "test_user_456": {
+        "regular": 2,
+        "leaves": 1,
+        "fake": 1,
+        "bonus": 3
+      }
+    },
+    "1540958511112917084": {
+      "1492895912681541652": {
+        "regular": 2,
+        "leaves": 0,
+        "fake": 0,
+        "bonus": 0
+      },
+      "1507607458539896943": {
+        "regular": 4,
+        "leaves": 0,
+        "fake": 0,
+        "bonus": 0
+      },
+      "1429361029179113517": {
+        "regular": 2,
+        "leaves": 0,
+        "fake": 0,
+        "bonus": 0
+      },
+      "1435519879724798064": {
+        "regular": 1,
+        "leaves": 1,
+        "fake": 0,
+        "bonus": 0
+      }
+    },
+    "1484076210412851324": {
+      "1429361029179113517": {
+        "regular": 1,
+        "leaves": 0,
+        "fake": 0,
+        "bonus": 0
+      }
+    }
+  },
+  "invite_members": {
+    "test_guild_123": {
+      "member_1": {
+        "inviterId": "test_user_456",
+        "code": "code123",
+        "isFake": false,
+        "joinedAt": "2026-08-19T16:37:22.934Z"
+      },
+      "member_2": {
+        "inviterId": "test_user_456",
+        "code": "code123",
+        "isFake": false,
+        "joinedAt": "2026-08-19T16:37:22.968Z"
+      },
+      "member_fake": {
+        "inviterId": "test_user_456",
+        "code": "code123",
+        "isFake": true,
+        "joinedAt": "2026-08-19T16:37:22.982Z"
+      }
+    },
+    "1540958511112917084": {
+      "1521446122424369233": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T06:14:03.530Z"
+      },
+      "1507607458539896943": {
+        "inviterId": "1492895912681541652",
+        "code": "a779rbGDG",
+        "isFake": false,
+        "joinedAt": "2026-08-23T06:20:18.215Z"
+      },
+      "1499386491808256071": {
+        "inviterId": "1507607458539896943",
+        "code": "EYBhppUYw",
+        "isFake": false,
+        "joinedAt": "2026-08-23T06:22:02.612Z"
+      },
+      "1276885959866187777": {
+        "inviterId": "1507607458539896943",
+        "code": "QWssJMXYG",
+        "isFake": false,
+        "joinedAt": "2026-08-23T06:39:45.431Z"
+      },
+      "1513879517712748654": {
+        "inviterId": "1507607458539896943",
+        "code": "QWssJMXYG",
+        "isFake": false,
+        "joinedAt": "2026-08-23T06:52:50.072Z"
+      },
+      "1428404085866102847": {
+        "inviterId": "1429361029179113517",
+        "code": "R3RPHUTxj",
+        "isFake": false,
+        "joinedAt": "2026-08-23T06:57:07.764Z"
+      },
+      "1484161966644789318": {
+        "inviterId": "1429361029179113517",
+        "code": "R3RPHUTxj",
+        "isFake": false,
+        "joinedAt": "2026-08-23T07:04:22.584Z"
+      },
+      "1538871998363598891": {
+        "inviterId": "1492895912681541652",
+        "code": "4mRqApht2",
+        "isFake": false,
+        "joinedAt": "2026-08-23T15:22:12.819Z"
+      },
+      "845558106952171541": {
+        "inviterId": "1507607458539896943",
+        "code": "yknE4cya7",
+        "isFake": false,
+        "joinedAt": "2026-08-25T17:39:15.901Z"
+      },
+      "1445647869414740122": {
+        "inviterId": "1435519879724798064",
+        "code": "26fQ7fApb",
+        "isFake": false,
+        "joinedAt": "2026-08-29T09:43:44.175Z"
+      }
+    },
+    "1489107089241673862": {
+      "302050872383242240": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T06:21:18.944Z"
+      },
+      "735147814878969968": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T06:22:17.830Z"
+      },
+      "1225070865935368265": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T06:23:00.500Z"
+      },
+      "692045914436796436": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T06:25:04.047Z"
+      },
+      "1521446122424369233": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T07:25:25.970Z"
+      },
+      "1021732722479202304": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T07:28:20.227Z"
+      },
+      "720351927581278219": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T07:30:57.647Z"
+      },
+      "408785106942164992": {
+        "inviterId": null,
+        "code": null,
+        "isFake": true,
+        "joinedAt": "2026-08-23T07:31:46.218Z"
+      }
+    },
+    "1484076210412851324": {
+      "1245405732652716159": {
+        "inviterId": "1429361029179113517",
+        "code": "T4teFGqW5",
+        "isFake": false,
+        "joinedAt": "2026-08-25T16:55:18.039Z"
+      }
+    }
+  }
+}

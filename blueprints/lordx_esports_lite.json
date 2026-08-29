@@ -1,0 +1,84 @@
+{
+  "id": "esports-lordx-lite",
+  "name": "🏆 Lordx Esports LITE Hub",
+  "description": "Professional BGMI Lite tournament & scrims community with T1/T2/T3 tiers, slot registration, and squad voice rooms.",
+  "category": "🛡️ Esports & Clans",
+  "roles": [
+    { "name": "👑 Owner", "color": "#FFD700", "hoist": true, "mentionable": false, "isOwnerRole": true },
+    { "name": "🛡️ Management", "color": "#E74C3C", "hoist": true, "mentionable": false, "isAdminRole": true },
+    { "name": "⚔️ Esports Manager", "color": "#3498DB", "hoist": true, "mentionable": true },
+    { "name": "🛡️ Scrims Mod", "color": "#3498DB", "hoist": true, "mentionable": true },
+    { "name": "💬 Chat Mod", "color": "#3498DB", "hoist": true, "mentionable": true },
+    { "name": "🎙️ Official Caster", "color": "#F47FFF", "hoist": true, "mentionable": false },
+    { "name": "🎬 Content Creator", "color": "#F47FFF", "hoist": true, "mentionable": false },
+    { "name": "💎 VIP", "color": "#F47FFF", "hoist": true, "mentionable": false },
+    { "name": "🏆 T1 Team", "color": "#FF4655", "hoist": true, "mentionable": true },
+    { "name": "🥇 T2 Team", "color": "#F1C40F", "hoist": true, "mentionable": true },
+    { "name": "🥈 T3 Team", "color": "#BDC3C7", "hoist": true, "mentionable": true },
+    { "name": "👑 IGL (In-Game Leader)", "color": "#9B59B6", "hoist": true, "mentionable": true },
+    { "name": "🎟️ Registered", "color": "#2ECC71", "hoist": true, "mentionable": true },
+    { "name": "🏆 Conqueror", "color": "#FF4655", "hoist": true, "mentionable": false },
+    { "name": "⚔️ Ace", "color": "#E67E22", "hoist": true, "mentionable": false },
+    { "name": "🛡️ Crown", "color": "#9B59B6", "hoist": true, "mentionable": false },
+    { "name": "🥇 Diamond", "color": "#3498DB", "hoist": true, "mentionable": false },
+    { "name": "🚀 Server Booster", "color": "#F47FFF", "hoist": true, "mentionable": false },
+    { "name": "📢 Announcement Ping", "color": "#7289DA", "hoist": false, "mentionable": true },
+    { "name": "⚔️ Scrims Ping", "color": "#7289DA", "hoist": false, "mentionable": true },
+    { "name": "🎁 Giveaway Ping", "color": "#7289DA", "hoist": false, "mentionable": true },
+    { "name": "🤝 LFG Ping", "color": "#7289DA", "hoist": false, "mentionable": true },
+    { "name": "👥 Member", "color": "#99AAB5", "hoist": false, "mentionable": false }
+  ],
+  "categories": [
+    {
+      "name": "📁 ━━ WELCOME & INFO ━━",
+      "channels": [
+        { "name": "👋・welcome", "type": "text", "isWelcomeChannel": true, "topic": "Welcome to Lordx Esports LITE community!" },
+        { "name": "📜・rules", "type": "text", "topic": "Official Server & Scrims Guidelines" },
+        { "name": "📢・announcements", "type": "announcement", "topic": "Tournaments, Scrims timings and important updates" },
+        { "name": "🎭・reaction-roles", "type": "text", "topic": "Get self roles & Scrims notification pings" }
+      ]
+    },
+    {
+      "name": "📁 ━━ ESPORTS ZONE ━━",
+      "channels": [
+        { "name": "🗓️・scrims-schedule", "type": "text", "topic": "Daily T1, T2, T3 Custom Room timings and slots" },
+        { "name": "📝・register-here", "type": "text", "topic": "Submit your team lineup and format to register for slots" },
+        { "name": "✅・confirmed-teams", "type": "text", "topic": "Official verified list of teams with confirmed slots" },
+        { "name": "🔑・id-pass", "type": "text", "topic": "Restricted: Only registered teams can see room ID & Password" },
+        { "name": "📊・results", "type": "text", "topic": "Match winner screenshots, points table & kill feeds" }
+      ]
+    },
+    {
+      "name": "📁 ━━ COMMUNITY HUB ━━",
+      "channels": [
+        { "name": "💬・general-chat", "type": "text", "topic": "Main hangout and community discussion chat" },
+        { "name": "🤝・find-a-squad", "type": "text", "topic": "Looking for Team / LFG recruitment channel" },
+        { "name": "🎬・clips-and-highlights", "type": "text", "topic": "Post your best BGMI clutches, montages & headshots" },
+        { "name": "🤖・bot-commands", "type": "text", "topic": "Check ranks, stats and use bot commands" }
+      ]
+    },
+    {
+      "name": "📁 ━━ SUPPORT / TICKETS ━━",
+      "channels": [
+        { "name": "📩・create-a-ticket", "type": "text", "topic": "Click button to open private ticket for slot disputes or hacker reports" },
+        { "name": "📜・mod-logs", "type": "text", "isModLogChannel": true, "topic": "Staff moderation logs" }
+      ]
+    },
+    {
+      "name": "📁 ━━ VOICE CHANNELS ━━",
+      "channels": [
+        { "name": "🔊・Lobby Lounge", "type": "voice" },
+        { "name": "🔒・Squad 1 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 2 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 3 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 4 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 5 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 6 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 7 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🔒・Squad 8 (4)", "type": "voice", "userLimit": 4 },
+        { "name": "🎙️・Casters Lounge", "type": "voice", "userLimit": 5 },
+        { "name": "🤫・Staff Meeting", "type": "voice", "userLimit": 10 }
+      ]
+    }
+  ]
+}
