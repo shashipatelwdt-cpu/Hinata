@@ -1,0 +1,12 @@
+name: Keep Alive Hinata Bot
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render
+        run: curl -s https://hinata-o516.onrender.com
