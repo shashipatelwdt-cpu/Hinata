@@ -118,6 +118,70 @@ class GuildQueue {
     return 0;
   }
 
+  async getLiveAudioStream(song) {
+    if (!song) return null;
+
+    // 1. Direct SoundCloud stream if URL is SoundCloud
+    if (song.url && song.url.includes('soundcloud.com')) {
+      try {
+        await this.manager.initSoundCloud();
+        const scStream = await play.stream(song.url);
+        if (scStream && scStream.stream) {
+          return { stream: scStream.stream, type: scStream.type };
+        }
+      } catch (scErr) {
+        console.warn('[SOUNDCLOUD DIRECT STREAM ERROR]:', scErr.message);
+      }
+    }
+
+    // 2. High-speed SoundCloud Search & Stream (100% Reliable on Cloud Datacenter IPs)
+    try {
+      await this.manager.initSoundCloud();
+      const cleanTitle = (song.title || '')
+        .replace(/\(Official.*?\)/gi, '')
+        .replace(/\[Official.*?\]/gi, '')
+        .replace(/\|.*$/g, '')
+        .trim();
+      const searchKeyword = `${cleanTitle} ${song.author || ''}`.trim();
+      const scResults = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
+      if (scResults && scResults.length > 0 && scResults[0].url) {
+        const scStream = await play.stream(scResults[0].url);
+        if (scStream && scStream.stream) {
+          return { stream: scStream.stream, type: scStream.type };
+        }
+      }
+    } catch (scErr) {
+      console.warn('[SOUNDCLOUD SEARCH STREAM ERROR]:', scErr.message);
+    }
+
+    // 3. YouTube yt-dlp stream fallback
+    const ytDlpPath = getYtDlpPath();
+    if (ytDlpPath && song.url) {
+      try {
+        const ytProcess = spawn(ytDlpPath, [
+          song.url,
+          '-o', '-',
+          '-f', 'ba/b',
+          '--extractor-args', 'youtube:player_client=android,mweb,web',
+          '--no-playlist',
+          '--no-check-certificates',
+          '--no-warnings',
+          '--limit-rate', '2M',
+          '--buffer-size', '64K'
+        ], {
+          stdio: ['ignore', 'pipe', 'ignore']
+        });
+
+        this.currentProcess = ytProcess;
+        return { stream: ytProcess.stdout, type: StreamType.Arbitrary };
+      } catch (ytErr) {
+        console.warn('[YT-DLP STREAM FALLBACK ERROR]:', ytErr.message);
+      }
+    }
+
+    return null;
+  }
+
   async playNext() {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
@@ -202,74 +266,13 @@ class GuildQueue {
 
       this.connection.subscribe(this.player);
 
-      let audioStream = null;
-      let streamType = StreamType.Arbitrary;
-
-      // 1. Direct SoundCloud stream if URL is from soundcloud
-      if (this.currentSong.url && this.currentSong.url.includes('soundcloud.com')) {
-        try {
-          await this.manager.initSoundCloud();
-          const scStream = await play.stream(this.currentSong.url);
-          if (scStream && scStream.stream) {
-            audioStream = scStream.stream;
-            streamType = scStream.type;
-          }
-        } catch (scErr) {
-          console.warn('[SOUNDCLOUD DIRECT STREAM ERROR]:', scErr.message);
-        }
+      const streamData = await this.getLiveAudioStream(this.currentSong);
+      if (!streamData || !streamData.stream) {
+        throw new Error('Could not resolve audio stream for track');
       }
 
-      // 2. High-performance yt-dlp streaming with mobile client bypass for datacenter IPs
-      if (!audioStream) {
-        const ytDlpPath = getYtDlpPath();
-        if (ytDlpPath) {
-          try {
-            const ytProcess = spawn(ytDlpPath, [
-              this.currentSong.url,
-              '-o', '-',
-              '-f', 'ba/b',
-              '--extractor-args', 'youtube:player_client=android,mweb,web',
-              '--no-playlist',
-              '--no-check-certificates',
-              '--no-warnings',
-              '--limit-rate', '2M',
-              '--buffer-size', '64K'
-            ], {
-              stdio: ['ignore', 'pipe', 'ignore']
-            });
-
-            ytProcess.on('error', (err) => {
-              console.warn('[YT-DLP PROCESS ERROR]:', err.message);
-            });
-
-            this.currentProcess = ytProcess;
-            audioStream = ytProcess.stdout;
-          } catch (ytdlErr) {
-            console.warn('[YT-DLP STREAM FALLBACK]:', ytdlErr.message);
-          }
-        }
-      }
-
-      // 3. Fallback to SoundCloud search & stream if yt-dlp was blocked
-      if (!audioStream) {
-        try {
-          await this.manager.initSoundCloud();
-          const searchKeyword = `${this.currentSong.title} ${this.currentSong.author || ''}`.trim();
-          const scRes = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
-          if (scRes && scRes.length > 0) {
-            const scStream = await play.stream(scRes[0].url);
-            if (scStream && scStream.stream) {
-              audioStream = scStream.stream;
-              streamType = scStream.type;
-            }
-          }
-        } catch (fbErr) {
-          console.warn('[SOUNDCLOUD FALLBACK STREAM ERROR]:', fbErr.message);
-        }
-      }
-
-      const resource = createAudioResource(audioStream, {
-        inputType: streamType,
+      const resource = createAudioResource(streamData.stream, {
+        inputType: streamData.type || StreamType.Arbitrary,
         inlineVolume: true
       });
 
