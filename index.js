@@ -115,15 +115,13 @@ if (!token || token === 'your_bot_token_here') {
   console.log('\n' + '='.repeat(60));
   console.log('⚠️  ACTION REQUIRED: DISCORD BOT TOKEN MISSING');
   console.log('='.repeat(60));
-  console.log('1. Open or create the .env file in the bot root directory:');
-  console.log('   c:\\Users\\www\\OneDrive\\Desktop\\BOT\\.env');
-  console.log('\n2. Add your token and client ID:');
-  console.log('   DISCORD_TOKEN=your_real_bot_token');
-  console.log('   CLIENT_ID=your_bot_client_id');
-  console.log('\n3. Run: npm start');
+  console.log('Please set DISCORD_TOKEN in your environment variables or .env file.');
   console.log('='.repeat(60) + '\n');
-      client.login(token)
+} else {
+  console.log('🔑 Logging into Discord Gateway...');
+  client.login(token)
     .then(async () => {
+      console.log(`✅ Successfully logged in as ${client.user?.tag || 'Hinata'}!`);
       if (clientId && clientId !== 'your_client_id_here') {
         await registerCommands(token, clientId, guildId);
       }
