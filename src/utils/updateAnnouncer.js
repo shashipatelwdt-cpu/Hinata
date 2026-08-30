@@ -86,7 +86,9 @@ class UpdateAnnouncer {
           `• ⚡ **Fix:** Instant song playback & accurate song streaming\n` +
           `• 🎵 **New:** Spotify-Style Personal Custom Playlists (\`/playlist\` & \`h pl\`)\n` +
           `• 👻 **Feature:** Ghost Ping tracking & command (\`/ghostping\` & \`h ghostping\`)\n` +
-          `• 📢 **Fix:** Announcement channel broadcasting & role/@everyone pings\n` +
+          `• 📢 **Fix:** Announcement channel broadcasting & formatting\n` +
+          `• 👋 **Fix:** Welcome messages strictly isolated to welcome channel\n` +
+          `• 👑 **Fix:** Auto-role reliable role assignment on member join\n` +
           `• 💤 **Fix:** Automatic VC leave when empty\n\n` +
           `**Release:** \`${commitInfo.hash}\` • <t:${Math.floor(Date.now() / 1000)}:R>`
         )

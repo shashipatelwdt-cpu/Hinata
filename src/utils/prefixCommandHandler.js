@@ -1208,11 +1208,11 @@ class PrefixCommandHandler {
                 .setDescription(
                   `You can use either **Slash Command** (Recommended) or **Prefix Command**:\n\n` +
                   `**✨ Slash Command (Recommended):**\n` +
-                  `• \`/announce send channel:#announcements message:Hello everyone! [ping:everyone/here/role]\`\n` +
+                  `• \`/announce send channel:#announcements message:Server update completed!\` *(Ping is optional)*\n` +
                   `• \`/announce modal channel:#announcements\` *(Opens rich popup editor)*\n\n` +
                   `**⚡ Quick Prefix Syntax:**\n` +
                   `• \`h announce <#channel> <message>\`\n` +
-                  `*Example:* \`h announce #announcements @everyone Server maintenance completed!\``
+                  `*Example:* \`h announce #announcements Server maintenance completed!\``
                 )
                 .setColor(config.embedColors?.primary || '#5865F2')
             ]
