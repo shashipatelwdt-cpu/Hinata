@@ -88,6 +88,7 @@ class GuildQueue {
       this.connection.subscribe(this.player);
     }
     this.consecutiveErrors = 0;
+    this.isManuallySkipped = false;
     this.setupListeners();
 
     // Check if voice channel is initially empty
@@ -107,40 +108,37 @@ class GuildQueue {
 
     // Player idle handling
     this.player.on(AudioPlayerStatus.Idle, async (oldState) => {
-      const elapsed = this.currentSong?.startedAt ? (Date.now() - this.currentSong.startedAt) : 0;
-      
-      // If song played for < 3.5s, it was an aborted / stalled stream
-      if (elapsed < 3500 && this.currentSong) {
-        this.consecutiveErrors = (this.consecutiveErrors || 0) + 1;
-        console.warn(`[STREAM PREMATURE END] Song "${this.currentSong.title}" stream ended early (${elapsed}ms). Consecutive errors: ${this.consecutiveErrors}`);
+      if (oldState.status === AudioPlayerStatus.Playing || oldState.status === AudioPlayerStatus.Buffering) {
+        const elapsed = this.currentSong?.startedAt ? (Date.now() - this.currentSong.startedAt) : 0;
         
-        if (this.consecutiveErrors >= 3) {
-          console.error('[AUTOPLAY CIRCUIT BREAKER]: 3 consecutive stream failures. Stopping autoplay loop.');
-          this.isPlaying = false;
-          this.stopLiveTimer();
-          if (this.textChannel) {
-            this.textChannel.send({
-              embeds: [
-                new EmbedBuilder()
-                  .setTitle('⚠️ Playback Stalled')
-                  .setDescription('Multiple audio streams could not be loaded due to network or stream source limits.\nAutoplay has been paused. Use `/play` to resume with a new track.')
-                  .setColor(config.embedColors?.danger || '#ED4245')
-              ]
-            }).then(m => setTimeout(() => m.delete().catch(() => null), 12000)).catch(() => null);
+        // Check if stream ended prematurely (< 2500ms) without manual skip
+        if (elapsed < 2500 && this.currentSong && !this.isManuallySkipped) {
+          this.consecutiveErrors = (this.consecutiveErrors || 0) + 1;
+          console.warn(`[STREAM PREMATURE END] Song "${this.currentSong.title}" stream ended early (${elapsed}ms). Consecutive errors: ${this.consecutiveErrors}`);
+          
+          if (this.consecutiveErrors >= 4) {
+            console.error('[AUTOPLAY CIRCUIT BREAKER]: 4 consecutive stream failures. Stopping autoplay loop.');
+            this.isPlaying = false;
+            this.stopLiveTimer();
+            if (this.textChannel) {
+              this.textChannel.send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle('⚠️ Playback Paused')
+                    .setDescription('Multiple audio streams could not be loaded due to network limits.\nAutoplay has been paused. Use `/play` to resume with a new track.')
+                    .setColor(config.embedColors?.danger || '#ED4245')
+                ]
+              }).then(m => setTimeout(() => m.delete().catch(() => null), 12000)).catch(() => null);
+            }
+            this.currentSong = null;
+            this.songs = [];
+            return;
           }
-          this.currentSong = null;
-          this.songs = [];
-          return;
+        } else {
+          this.consecutiveErrors = 0;
         }
 
-        this.isPlaying = false;
-        this.stopLiveTimer();
-        this.handleSongEnd();
-        return;
-      }
-
-      if (oldState.status === AudioPlayerStatus.Playing || oldState.status === AudioPlayerStatus.Buffering) {
-        this.consecutiveErrors = 0;
+        this.isManuallySkipped = false;
         this.isPlaying = false;
         this.stopLiveTimer();
         this.handleSongEnd();
@@ -186,9 +184,10 @@ class GuildQueue {
 
   /**
    * Resilient Multi-Tier Stream Resolver
-   * Tier 1: Direct URL yt-dlp pipe -> FFmpeg 48kHz Stereo PCM (100% immune to YouTube cipher changes)
-   * Tier 2: Search-based yt-dlp pipe (ytsearch1:title author) for fallback
-   * Tier 3: Direct SoundCloud web stream fallback
+   * Tier 1: Direct URL yt-dlp pipe -> FFmpeg 48kHz Stereo PCM
+   * Tier 2: Extracted CDN Media URL (yt-dlp -g) -> FFmpeg direct stream with auto-reconnect
+   * Tier 3: Search-based yt-dlp pipe (ytsearch1:title author)
+   * Tier 4: SoundCloud search / direct fallback via yt-dlp (scsearch1:title author)
    */
   async getLiveAudioStream(song) {
     if (!song) return null;
@@ -196,7 +195,18 @@ class GuildQueue {
     const ytDlpPath = getYtDlpPath();
     const ffmpegPath = require('ffmpeg-static') || process.env.FFMPEG_PATH || 'ffmpeg';
     const { PassThrough } = require('stream');
+    const { execFile } = require('child_process');
 
+    const commonYtDlpArgs = [
+      '--js-runtimes', 'node',
+      '--extractor-args', 'youtube:player_client=android,web,mweb,ios,tv_embedded',
+      '--no-playlist',
+      '--no-check-certificates',
+      '--no-warnings',
+      '--no-cache-dir'
+    ];
+
+    // Method A: Pipe from yt-dlp through FFmpeg
     const streamWithPipeline = async (target) => {
       if (!ytDlpPath || !target) return null;
       return new Promise((resolve) => {
@@ -212,13 +222,11 @@ class GuildQueue {
         try {
           ytProc = spawn(ytDlpPath, [
             target,
+            ...commonYtDlpArgs,
             '-o', '-',
-            '-f', 'ba/b',
-            '--no-playlist',
-            '--no-check-certificates',
-            '--no-warnings',
-            '--limit-rate', '10M',
-            '--buffer-size', '256K'
+            '-f', 'ba/b/bestaudio/best',
+            '--limit-rate', '15M',
+            '--buffer-size', '512K'
           ], {
             stdio: ['ignore', 'pipe', 'ignore']
           });
@@ -253,7 +261,7 @@ class GuildQueue {
             }
           }, 25000);
 
-          ffmpegProc.stdout.once('data', (chunk) => {
+          ffmpegProc.stdout.once('data', () => {
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timeout);
@@ -301,16 +309,127 @@ class GuildQueue {
       });
     };
 
-    // 1. Direct song URL with yt-dlp + ffmpeg
+    // Method B: Direct extracted media URL through FFmpeg
+    const streamWithExtractedUrl = async (target) => {
+      if (!ytDlpPath || !target) return null;
+      return new Promise((resolve) => {
+        let isResolved = false;
+        let ffmpegProc = null;
+
+        const cleanup = () => {
+          try { if (ffmpegProc) ffmpegProc.kill(); } catch {}
+        };
+
+        const timeout = setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            cleanup();
+            resolve(null);
+          }
+        }, 25000);
+
+        try {
+          execFile(ytDlpPath, [
+            target,
+            ...commonYtDlpArgs,
+            '-g',
+            '-f', 'ba/b/bestaudio/best'
+          ], { timeout: 15000 }, (err, stdout) => {
+            if (err || !stdout || isResolved) {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                resolve(null);
+              }
+              return;
+            }
+
+            const mediaUrl = stdout.trim().split('\n')[0].trim();
+            if (!mediaUrl || !mediaUrl.startsWith('http')) {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                resolve(null);
+              }
+              return;
+            }
+
+            ffmpegProc = spawn(ffmpegPath, [
+              '-reconnect', '1',
+              '-reconnect_streamed', '1',
+              '-reconnect_delay_max', '5',
+              '-i', mediaUrl,
+              '-analyzeduration', '0',
+              '-loglevel', '0',
+              '-f', 's16le',
+              '-ar', '48000',
+              '-ac', '2',
+              'pipe:1'
+            ], {
+              stdio: ['ignore', 'pipe', 'ignore']
+            });
+
+            const passThrough = new PassThrough({ highWaterMark: 1024 * 512 });
+            ffmpegProc.stdout.on('error', () => {});
+            passThrough.on('error', () => {});
+            ffmpegProc.stdout.pipe(passThrough);
+
+            ffmpegProc.stdout.once('data', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve({
+                  stream: passThrough,
+                  process: { kill: cleanup },
+                  type: StreamType.Raw
+                });
+              }
+            });
+
+            ffmpegProc.on('error', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                resolve(null);
+              }
+            });
+
+            ffmpegProc.on('close', (code) => {
+              if (!isResolved && code !== 0) {
+                isResolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                resolve(null);
+              }
+            });
+          });
+        } catch (e) {
+          cleanup();
+          resolve(null);
+        }
+      });
+    };
+
+    // 1. Direct song URL with yt-dlp + FFmpeg pipe
     if (song.url && (song.url.startsWith('http://') || song.url.startsWith('https://'))) {
       const res = await streamWithPipeline(song.url);
       if (res && res.stream) {
         this.currentProcess = res.process;
         return res;
       }
+
+      // Tier 2: Extracted CDN Media URL via yt-dlp -g
+      const resUrl = await streamWithExtractedUrl(song.url);
+      if (resUrl && resUrl.stream) {
+        this.currentProcess = resUrl.process;
+        return resUrl;
+      }
     }
 
-    // 2. Search-based yt-dlp stream (resolves 100% of tracks if URL was blocked or invalid)
+    // 3. Search-based yt-dlp stream (resolves 100% of tracks if URL was blocked or invalid)
     const cleanTitle = cleanSongTitle(song.title || '');
     if (cleanTitle) {
       const searchTarget = `ytsearch1:${cleanTitle} ${song.author || ''}`.trim();
@@ -319,18 +438,21 @@ class GuildQueue {
         this.currentProcess = res.process;
         return res;
       }
+
+      const resUrl = await streamWithExtractedUrl(searchTarget);
+      if (resUrl && resUrl.stream) {
+        this.currentProcess = resUrl.process;
+        return resUrl;
+      }
     }
 
-    // 3. SoundCloud stream fallback if valid web link
-    if (song.url && song.url.includes('soundcloud.com') && !song.url.includes('api.soundcloud.com')) {
-      try {
-        await this.manager.initSoundCloud();
-        const scStream = await play.stream(song.url);
-        if (scStream && scStream.stream) {
-          return { stream: scStream.stream, type: scStream.type || StreamType.Arbitrary };
-        }
-      } catch (scErr) {
-        console.warn('[SOUNDCLOUD STREAM FALLBACK ERROR]:', scErr.message);
+    // 4. SoundCloud search / direct fallback via yt-dlp
+    if (cleanTitle) {
+      const scTarget = song.url && song.url.includes('soundcloud.com') ? song.url : `scsearch1:${cleanTitle} ${song.author || ''}`.trim();
+      const resSc = await streamWithPipeline(scTarget);
+      if (resSc && resSc.stream) {
+        this.currentProcess = resSc.process;
+        return resSc;
       }
     }
 
@@ -719,6 +841,7 @@ class GuildQueue {
 
   skip() {
     if (this.isPlaying || this.isPaused) {
+      this.isManuallySkipped = true;
       this.player.stop();
       return true;
     }

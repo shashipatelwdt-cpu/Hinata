@@ -72,7 +72,12 @@ module.exports = {
       queue.songs.push(song);
 
       if (!queue.isPlaying) {
-        await interaction.deleteReply().catch(() => null);
+        const embed = new EmbedBuilder()
+          .setTitle('▶️ Loading Track...')
+          .setDescription(`**[${song.title}](${song.url})**\nConnecting to <#${voiceChannel.id}> and starting audio stream...`)
+          .setColor(config.embedColors?.primary || '#5865F2');
+        if (song.thumbnail) embed.setThumbnail(song.thumbnail);
+        await interaction.editReply({ embeds: [embed] }).catch(() => null);
         queue.playNext();
       } else {
         const embed = new EmbedBuilder()

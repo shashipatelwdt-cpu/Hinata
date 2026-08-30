@@ -1,4 +1,4 @@
-const { joinVoiceChannel } = require('@discordjs/voice');
+const { joinVoiceChannel, getVoiceConnection, VoiceConnectionStatus } = require('@discordjs/voice');
 const { EmbedBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const play = require('play-dl');
@@ -183,6 +183,11 @@ class MusicManager {
         connection.subscribe(queue.player);
       }
       return queue;
+    }
+
+    const existingConn = getVoiceConnection(guild.id);
+    if (existingConn && (existingConn.state.status === VoiceConnectionStatus.Destroyed || existingConn.state.status === VoiceConnectionStatus.Disconnected)) {
+      try { existingConn.destroy(); } catch {}
     }
 
     const connection = joinVoiceChannel({
