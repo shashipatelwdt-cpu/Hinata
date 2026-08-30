@@ -1,12 +1,18 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { DatabaseManager } = require('../../../database/db');
+const InviteTracker = require('../../utils/inviteTracker');
 const EmbedUtils = require('../../utils/embeds');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('invites-manage')
-    .setDescription('⚙️ Admin commands to add bonus invites, remove invites or reset stats')
+    .setDescription('⚙️ Admin commands to add bonus invites, remove invites, sync with Discord, or reset stats')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addSubcommand(sub =>
+      sub
+        .setName('sync')
+        .setDescription('🔄 Re-sync all active server invite links from Discord into the bot database')
+    )
     .addSubcommand(sub =>
       sub
         .setName('add')
@@ -36,7 +42,27 @@ module.exports = {
 
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
-    const guildId = interaction.guild.id;
+    const guild = interaction.guild;
+    const guildId = guild.id;
+
+    // 0. SYNC ACTIVE DISCORD INVITES
+    if (subcommand === 'sync') {
+      await interaction.deferReply();
+      const syncedCount = await InviteTracker.syncGuild(guild);
+      const topInviters = DatabaseManager.getInviteLeaderboard(guildId, 5);
+
+      return interaction.editReply({
+        embeds: [
+          EmbedUtils.success(
+            'Invites Re-Synced! 🔄',
+            `Successfully scanned all active Discord invite links for **${guild.name}** and reconciled records with the database!\n\n` +
+            `• **Members Updated/Synced:** \`${syncedCount}\`\n` +
+            `• **Top Inviters Tracked:** \`${topInviters.length}\`\n\n` +
+            `*Tip: Run \`/invites leaderboard\` to view the full server rankings.*`
+          )
+        ]
+      });
+    }
 
     // 1. ADD BONUS INVITES
     if (subcommand === 'add') {

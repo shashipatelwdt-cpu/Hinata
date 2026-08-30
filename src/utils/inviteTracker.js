@@ -17,25 +17,38 @@ class InviteTracker {
   }
 
   /**
-   * Sync invites for a specific guild
+   * Sync invites for a specific guild and reconcile with database
    * @param {import('discord.js').Guild} guild 
    */
   static async syncGuild(guild) {
     try {
-      const botMember = guild.members.me;
+      const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
       if (!botMember || !botMember.permissions.has('ManageGuild')) {
-        return;
+        console.warn(`[INVITE TRACKER] Bot lacks 'ManageGuild' permission in ${guild.name} (${guild.id}).`);
+        return 0;
       }
 
-      const invites = await guild.invites.fetch().catch(() => null);
-      if (!invites) return;
+      const invites = await guild.invites.fetch().catch(err => {
+        console.warn(`[INVITE TRACKER] Could not fetch invites in ${guild.name}: ${err.message}`);
+        return null;
+      });
+      if (!invites) return 0;
 
       const codeUsesMap = new Map();
+      const userTotalUses = {};
+
       invites.forEach(inv => {
-        codeUsesMap.set(inv.code, inv.uses || 0);
+        const uses = inv.uses || 0;
+        codeUsesMap.set(inv.code, uses);
+        if (inv.inviter && inv.inviter.id) {
+          userTotalUses[inv.inviter.id] = (userTotalUses[inv.inviter.id] || 0) + uses;
+        }
       });
 
       this.cachedInvites.set(guild.id, codeUsesMap);
+
+      // Reconcile with Database so existing Discord invites are properly reflected
+      const syncedCount = DatabaseManager.syncGuildInvitesFromDiscord(guild.id, userTotalUses);
 
       if (guild.vanityURLCode) {
         const vanity = await guild.fetchVanityData().catch(() => null);
@@ -43,8 +56,11 @@ class InviteTracker {
           this.vanityUses.set(guild.id, vanity.uses || 0);
         }
       }
+
+      return syncedCount;
     } catch (err) {
-      // Guild invites inaccessible or lack permission
+      console.error(`[INVITE TRACKER SYNC ERROR in ${guild.name}]:`, err.message);
+      return 0;
     }
   }
 

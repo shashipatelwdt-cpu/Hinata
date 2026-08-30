@@ -515,30 +515,65 @@ module.exports = {
       if (interaction.customId.startsWith('selfrole_menu_')) {
         await interaction.deferReply({ ephemeral: true });
 
-        const selectedValues = interaction.values;
+        const selectedValues = interaction.values || [];
         const allOptionValues = interaction.component.options.map(o => o.value);
-        const member = interaction.member;
+        const guild = interaction.guild;
+        const member = await guild.members.fetch(interaction.user.id).catch(() => interaction.member);
+        const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
+
+        if (!botMember || !botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
+          return interaction.editReply({
+            embeds: [EmbedUtils.error('Permission Denied', '⚠️ The bot is missing the **Manage Roles** permission to assign roles. Please contact a server administrator.')]
+          });
+        }
 
         const addedRoles = [];
         const removedRoles = [];
+        const failedHierarchy = [];
+        const missingRoles = [];
+
+        const guildSettings = DatabaseManager.getGuild(guild.id);
+        const menuConfig = guildSettings.selfroles?.[interaction.customId];
 
         for (const roleId of allOptionValues) {
           const isSelected = selectedValues.includes(roleId);
           const hasRole = member.roles.cache.has(roleId);
 
+          let role = guild.roles.cache.get(roleId) || await guild.roles.fetch(roleId).catch(() => null);
+
+          // Fallback: If role ID changed after server rebuild/reset, search by name from config
+          if (!role && menuConfig && menuConfig.roles) {
+            const roleEntry = menuConfig.roles.find(r => r.id === roleId);
+            if (roleEntry) {
+              role = guild.roles.cache.find(r => r.name.toLowerCase() === roleEntry.name.toLowerCase());
+            }
+          }
+
+          if (!role) {
+            missingRoles.push(roleId);
+            continue;
+          }
+
+          if (botMember.roles.highest.position <= role.position) {
+            failedHierarchy.push(role.name);
+            continue;
+          }
+
           if (isSelected && !hasRole) {
             try {
-              await member.roles.add(roleId, 'Self-Role Select Menu');
-              addedRoles.push(`<@&${roleId}>`);
+              await member.roles.add(role, 'Hinata Self-Role Select Menu');
+              addedRoles.push(`<@&${role.id}>`);
             } catch (e) {
-              console.error(`Failed to add role ${roleId}:`, e);
+              console.error(`Failed to add role ${role.name} (${role.id}):`, e);
+              failedHierarchy.push(role.name);
             }
           } else if (!isSelected && hasRole) {
             try {
-              await member.roles.remove(roleId, 'Self-Role Deselected');
-              removedRoles.push(`<@&${roleId}>`);
+              await member.roles.remove(role, 'Hinata Self-Role Deselected');
+              removedRoles.push(`<@&${role.id}>`);
             } catch (e) {
-              console.error(`Failed to remove role ${roleId}:`, e);
+              console.error(`Failed to remove role ${role.name} (${role.id}):`, e);
+              failedHierarchy.push(role.name);
             }
           }
         }
@@ -546,10 +581,20 @@ module.exports = {
         let replyText = '';
         if (addedRoles.length > 0) replyText += `✅ **Added:** ${addedRoles.join(' ')}\n`;
         if (removedRoles.length > 0) replyText += `➖ **Removed:** ${removedRoles.join(' ')}\n`;
-        if (addedRoles.length === 0 && removedRoles.length === 0) replyText = 'ℹ️ No role changes were made.';
+        if (addedRoles.length === 0 && removedRoles.length === 0 && failedHierarchy.length === 0 && missingRoles.length === 0) {
+          replyText = 'ℹ️ No role changes were made.';
+        }
+
+        if (failedHierarchy.length > 0) {
+          replyText += `\n⚠️ **Role Hierarchy Warning:** Bot cannot assign \`${failedHierarchy.join(', ')}\` because the bot's highest role is lower than these roles in Server Settings -> Roles.`;
+        }
+
+        if (missingRoles.length > 0) {
+          replyText += `\n⚠️ Some roles no longer exist on this server. Run \`/selfroles preset\` to regenerate this panel.`;
+        }
 
         return interaction.editReply({
-          embeds: [EmbedUtils.info('Roles Updated', replyText)]
+          embeds: [EmbedUtils.info('Roles Updated', replyText.trim())]
         });
       }
 
@@ -1675,8 +1720,20 @@ module.exports = {
       }
 
       if (customId === 'welcome_roles_btn') {
+        const guild = interaction.guild;
+        const rolesChannel = guild.channels.cache.find(c =>
+          c.isTextBased() && /self[-_]?roles?|get[-_]?roles?|reaction[-_]?roles?|roles/i.test(c.name)
+        );
+
+        if (rolesChannel) {
+          return interaction.reply({
+            content: `🎭 Head over to <#${rolesChannel.id}> to choose your self-roles, platforms, and colors!`,
+            ephemeral: true
+          });
+        }
+
         return interaction.reply({
-          content: '🎭 Head over to the roles channel or use `/selfroles preset` to pick your reaction roles and colors!',
+          content: '🎭 Self-roles can be chosen in the server roles channel, or an Administrator can deploy one using `/selfroles preset`!',
           ephemeral: true
         });
       }

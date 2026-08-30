@@ -94,6 +94,13 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true }).catch(() => null);
       }
 
+      const preset = ROLE_PRESETS[type];
+      if (!preset) {
+        return interaction.editReply({
+          embeds: [EmbedUtils.error('Invalid Preset', 'The requested self-roles preset does not exist.')]
+        });
+      }
+
       const resolvedRoles = [];
 
       for (const rDef of preset.roles) {
@@ -103,7 +110,7 @@ module.exports = {
             role = await guild.roles.create({
               name: rDef.name,
               color: rDef.color,
-              reason: `Apex Self-Roles Preset: ${type}`
+              reason: `Hinata Self-Roles Preset: ${type}`
             });
           } catch (e) {
             console.error(`Failed to auto-create role ${rDef.name}:`, e);
@@ -116,7 +123,7 @@ module.exports = {
 
       if (resolvedRoles.length === 0) {
         return interaction.editReply({
-          embeds: [EmbedUtils.error('Role Setup Failed', 'Could not create or find the preset roles. Please check bot role permissions.')]
+          embeds: [EmbedUtils.error('Role Setup Failed', 'Could not create or find the preset roles. Please check bot permissions and role hierarchy position.')]
         });
       }
 

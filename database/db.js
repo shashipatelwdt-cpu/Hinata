@@ -393,6 +393,35 @@ class DatabaseManager {
     return index !== -1 ? index + 1 : null;
   }
 
+  static syncGuildInvitesFromDiscord(guildId, discordInviteCounts = {}) {
+    if (!store.invites) store.invites = {};
+    if (!store.invites[guildId]) store.invites[guildId] = {};
+
+    let syncedCount = 0;
+    for (const [userId, uses] of Object.entries(discordInviteCounts)) {
+      if (!store.invites[guildId][userId]) {
+        store.invites[guildId][userId] = {
+          regular: uses,
+          leaves: 0,
+          fake: 0,
+          bonus: 0
+        };
+        syncedCount++;
+      } else {
+        const currentRegular = store.invites[guildId][userId].regular || 0;
+        if (currentRegular < uses) {
+          store.invites[guildId][userId].regular = uses;
+          syncedCount++;
+        }
+      }
+    }
+
+    if (syncedCount > 0) {
+      saveDatabase();
+    }
+    return syncedCount;
+  }
+
   // ==========================================
   // WARNINGS
   // ==========================================
