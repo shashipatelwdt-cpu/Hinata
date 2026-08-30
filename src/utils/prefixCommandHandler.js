@@ -1,5 +1,6 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const MusicManager = require('../music/MusicManager');
+const SnipeManager = require('./snipeManager');
 const EmbedUtils = require('./embeds');
 const config = require('../../config.json');
 const { DatabaseManager } = require('../../database/db');
@@ -736,6 +737,183 @@ class PrefixCommandHandler {
       }
 
       // ==========================================
+      // GHOSTPING COMMAND
+      // ==========================================
+      case 'ghostping':
+      case 'gp':
+      case 'ghost': {
+        const result = SnipeManager.getGhostPing(message.channel.id, 0);
+        if (!result) {
+          return message.reply({
+            embeds: [
+              EmbedUtils.info('No Ghost Pings', `👻 No ghost pings recorded in <#${message.channel.id}>.`)
+            ]
+          });
+        }
+
+        const { ghostPing: record, index, total } = result;
+        const userMentions = (record.ghostPing?.users || []).map(u => `<@${u.id}> (\`${u.tag || u.username}\`)`);
+        const roleMentions = (record.ghostPing?.roles || []).map(r => `<@&${r.id}> (\`${r.name}\`)`);
+        const everyoneMention = record.ghostPing?.hasEveryone ? ['`@everyone` / `@here`'] : [];
+        const allMentionTargets = [...userMentions, ...roleMentions, ...everyoneMention].join('\n• ') || 'Unknown';
+
+        const isEdited = record.type === 'edited';
+        const typeLabel = isEdited ? '✏️ Edited Message' : '🗑️ Deleted Message';
+
+        const embed = new EmbedBuilder()
+          .setColor(config.embedColors?.warning || '#FEE75C')
+          .setTitle(`👻 Ghost Ping Detected • ${typeLabel}`)
+          .setAuthor({
+            name: `${record.author.tag} (${record.author.username})`,
+            iconURL: record.author.avatar || message.guild.iconURL({ dynamic: true })
+          })
+          .addFields(
+            { name: '👤 Ghost Pinger', value: `<@${record.author.id}>`, inline: true },
+            { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
+            { name: '⏰ Timing', value: `Sent <t:${Math.floor(record.sentAt / 1000)}:R>`, inline: true },
+            { name: '🎯 Mentioned Targets', value: `• ${allMentionTargets}`, inline: false },
+            { name: '📝 Message Content', value: record.content ? `>>> ${record.content.slice(0, 1000)}` : '*[No Text]*', inline: false }
+          )
+          .setFooter({ text: `Ghost Ping ${index} of ${total} • Type /ghostping for full details` })
+          .setTimestamp(record.eventAt);
+
+        if (record.attachments && record.attachments.length > 0) {
+          const firstImage = record.attachments.find(att =>
+            att.contentType?.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(att.url)
+          );
+          if (firstImage) embed.setImage(firstImage.url);
+        }
+
+        return message.reply({ embeds: [embed] });
+      }
+
+      // ==========================================
+      // SNIPE COMMAND
+      // ==========================================
+      case 'snipe': {
+        const result = SnipeManager.getSnipe(message.channel.id, 0);
+        if (!result) {
+          return message.reply({
+            embeds: [EmbedUtils.warning('No Snipes', `No recently deleted messages in <#${message.channel.id}>.`)]
+          });
+        }
+
+        const { snipe, index, total } = result;
+        const embed = new EmbedBuilder()
+          .setColor(config.embedColors?.primary || '#5865F2')
+          .setAuthor({
+            name: `${snipe.author.tag} (${snipe.author.username})`,
+            iconURL: snipe.author.avatar
+          })
+          .setDescription(snipe.content ? `>>> ${snipe.content}` : '*[No text content / Only attachments]*')
+          .addFields(
+            { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
+            { name: '📅 Sent', value: `<t:${Math.floor(snipe.createdAt / 1000)}:R>`, inline: true },
+            { name: '🗑️ Deleted', value: `<t:${Math.floor(snipe.deletedAt / 1000)}:R>`, inline: true }
+          )
+          .setFooter({ text: `Snipe ${index} of ${total} • Message ID: ${snipe.id}` })
+          .setTimestamp(snipe.deletedAt);
+
+        if (snipe.ghostPing) {
+          const userMentions = (snipe.ghostPing.users || []).map(u => `<@${u.id}>`);
+          const roleMentions = (snipe.ghostPing.roles || []).map(r => `<@&${r.id}>`);
+          const everyoneMention = snipe.ghostPing.hasEveryone ? ['@everyone / @here'] : [];
+          const allTargets = [...userMentions, ...roleMentions, ...everyoneMention].join(', ');
+
+          embed.setColor(config.embedColors?.warning || '#FEE75C');
+          embed.addFields({
+            name: '👻 Ghost Ping Alert',
+            value: allTargets || 'Unknown',
+            inline: false
+          });
+        }
+
+        if (snipe.attachments && snipe.attachments.length > 0) {
+          const firstImage = snipe.attachments.find(att =>
+            att.contentType?.startsWith('image/') || /\.(png|jpe?g|gif|webp)$/i.test(att.url)
+          );
+          if (firstImage) embed.setImage(firstImage.url);
+        }
+
+        return message.reply({ embeds: [embed] });
+      }
+
+      // ==========================================
+      // ANNOUNCE QUICK HELPER
+      // ==========================================
+      case 'announce':
+      case 'announcement': {
+        const canManage = message.member?.permissions.has(PermissionFlagsBits.ManageMessages);
+        if (!canManage) {
+          return message.reply({
+            embeds: [EmbedUtils.error('Permission Denied', 'You need **Manage Messages** permissions to send announcements!')]
+          });
+        }
+
+        if (!query) {
+          return message.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('📢 How to use Announcement Command')
+                .setDescription(
+                  `You can use either **Slash Command** (Recommended) or **Prefix Command**:\n\n` +
+                  `**✨ Slash Command (Recommended):**\n` +
+                  `• \`/announce send channel:#announcements message:Hello everyone! [ping:everyone/here/role]\`\n` +
+                  `• \`/announce modal channel:#announcements\` *(Opens rich popup editor)*\n\n` +
+                  `**⚡ Quick Prefix Syntax:**\n` +
+                  `• \`h announce <#channel> <message>\`\n` +
+                  `*Example:* \`h announce #announcements @everyone Server maintenance completed!\``
+                )
+                .setColor(config.embedColors?.primary || '#5865F2')
+            ]
+          });
+        }
+
+        const targetChannel = message.mentions.channels.first() || message.channel;
+        const msgParts = args.filter(a => !a.startsWith('<#'));
+        const announceText = msgParts.join(' ').trim();
+
+        if (!announceText) {
+          return message.reply({
+            embeds: [EmbedUtils.error('Missing Message', 'Please provide the announcement message content!')]
+          });
+        }
+
+        let pingContent = null;
+        let cleanText = announceText;
+        if (announceText.includes('@everyone')) {
+          pingContent = '@everyone';
+        } else if (announceText.includes('@here')) {
+          pingContent = '@here';
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle('📢 Server Announcement')
+          .setDescription(cleanText)
+          .setColor(config.embedColors?.primary || '#5865F2')
+          .setAuthor({ name: message.guild.name, iconURL: message.guild.iconURL({ dynamic: true }) })
+          .setThumbnail(message.guild.iconURL({ dynamic: true, size: 256 }))
+          .setFooter({ text: `Announced by ${message.author.tag}`, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
+          .setTimestamp();
+
+        try {
+          const sendPayload = { embeds: [embed] };
+          if (pingContent) sendPayload.content = pingContent;
+
+          const sent = await targetChannel.send(sendPayload);
+          return message.reply({
+            embeds: [
+              EmbedUtils.success('Announcement Posted', `✅ Successfully broadcasted announcement to <#${targetChannel.id}>: [Jump to Message](${sent.url})`)
+            ]
+          });
+        } catch (e) {
+          return message.reply({
+            embeds: [EmbedUtils.error('Announcement Failed', `Could not post to <#${targetChannel.id}>: \`${e.message}\``)]
+          });
+        }
+      }
+
+      // ==========================================
       // HELP COMMAND
       // ==========================================
       case 'help':
@@ -757,7 +935,10 @@ class PrefixCommandHandler {
             `• \`h shuffle\` — Randomize songs in queue\n` +
             `• \`h lyrics [song]\` — Search song lyrics (\`h ly\`)\n` +
             `• \`h panel\` — Create interactive music control panel\n\n` +
-            `**🛠️ General Commands:**\n` +
+            `**🛠️ Utility & Moderation Commands:**\n` +
+            `• \`h ghostping\` — View who ghost pinged whom and what was the message\n` +
+            `• \`h snipe\` — View recently deleted message in channel\n` +
+            `• \`h announce\` — Send server announcements with custom embeds & pings\n` +
             `• \`h ping\` — Check bot latency & status\n` +
             `• \`h avatar [@user]\` — View user avatar\n` +
             `• \`h help\` — Show this help manual\n` +

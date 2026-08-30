@@ -543,14 +543,26 @@ const HELP_CATEGORIES = {
         perms: 'Everyone'
       },
       {
+        name: '/ghostping',
+        syntax: '/ghostping [index:<1-15>] [channel:<#channel>]',
+        desc: '👻 Check recently deleted or edited ghost-pings (who mentioned whom & message content).',
+        perms: 'Everyone'
+      },
+      {
+        name: '/announce',
+        syntax: '/announce send channel:<#channel> message:<text> [ping:<everyone/here/role>] | /announce modal',
+        desc: '📢 Send rich server announcements with banners, embeds, and role/@everyone pings.',
+        perms: 'Manage Messages'
+      },
+      {
         name: '/snipe',
-        syntax: '/snipe [channel:<#channel>]',
-        desc: 'Recover the last deleted message, image, author, and timestamp.',
+        syntax: '/snipe [index:<1-10>] [channel:<#channel>]',
+        desc: '🎯 Recover recently deleted messages, images, author, and ghost ping alerts.',
         perms: 'Everyone'
       },
       {
         name: '/editsnipe',
-        syntax: '/editsnipe [channel:<#channel>]',
+        syntax: '/editsnipe [index:<1-10>] [channel:<#channel>]',
         desc: 'Reveal original content before a message was edited.',
         perms: 'Everyone'
       },
@@ -563,7 +575,7 @@ const HELP_CATEGORIES = {
       {
         name: '/embed-builder',
         syntax: '/embed-builder [channel:<#channel>]',
-        desc: 'Interactive popup modal to craft formatted announcements & embeds.',
+        desc: 'Interactive popup modal to craft custom formatted embeds.',
         perms: 'Manage Messages'
       },
       {

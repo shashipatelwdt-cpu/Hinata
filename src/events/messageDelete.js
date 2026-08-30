@@ -15,7 +15,8 @@ module.exports = {
       try {
         const pingedUsers = snipe.ghostPing.users.map(u => `<@${u.id}>`).join(' ');
         const pingedRoles = snipe.ghostPing.roles.map(r => `<@&${r.id}>`).join(' ');
-        const allTargets = [pingedUsers, pingedRoles].filter(Boolean).join(', ');
+        const everyoneTag = snipe.ghostPing.hasEveryone ? '@everyone / @here' : null;
+        const allTargets = [pingedUsers, pingedRoles, everyoneTag].filter(Boolean).join(', ');
 
         // Log ghost-ping to ModLogs audit channel
         await ModLogger.log(message.guild, {

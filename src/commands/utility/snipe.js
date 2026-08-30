@@ -59,6 +59,21 @@ module.exports = {
       })
       .setTimestamp(snipe.deletedAt);
 
+    // If this snipe is a ghost-ping, highlight it prominently
+    if (snipe.ghostPing) {
+      const userMentions = (snipe.ghostPing.users || []).map(u => `<@${u.id}>`);
+      const roleMentions = (snipe.ghostPing.roles || []).map(r => `<@&${r.id}>`);
+      const everyoneMention = snipe.ghostPing.hasEveryone ? ['@everyone / @here'] : [];
+      const allTargets = [...userMentions, ...roleMentions, ...everyoneMention].join(', ');
+
+      embed.setColor(config.embedColors.warning || '#FEE75C');
+      embed.addFields({
+        name: '👻 Ghost Ping Alert (Mentioned Targets)',
+        value: allTargets || 'Unknown Mention',
+        inline: false
+      });
+    }
+
     // If attachments exist, show them
     if (snipe.attachments && snipe.attachments.length > 0) {
       const firstImage = snipe.attachments.find(att => 

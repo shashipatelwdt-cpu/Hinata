@@ -111,6 +111,83 @@ module.exports = {
         }
       }
 
+      // Announce Modal Submission
+      if (interaction.customId.startsWith('announce_modal_')) {
+        const parts = interaction.customId.replace('announce_modal_', '').split('_');
+        const channelId = parts[0];
+        const pingType = parts[1] || 'none';
+        const roleId = parts[2] || null;
+
+        const targetChannel = interaction.guild.channels.cache.get(channelId) || interaction.channel;
+
+        const title = interaction.fields.getTextInputValue('announce_title') || '📢 Server Announcement';
+        const content = interaction.fields.getTextInputValue('announce_content');
+        const color = interaction.fields.getTextInputValue('announce_color') || config.embedColors?.primary || '#5865F2';
+        const image = interaction.fields.getTextInputValue('announce_image') || null;
+        const footer = interaction.fields.getTextInputValue('announce_footer') || `${interaction.guild.name} • Announcement by ${interaction.user.tag}`;
+
+        const embedColor = color.startsWith('#') ? color : `#${color}`;
+        const embed = new EmbedBuilder()
+          .setTitle(title)
+          .setDescription(content)
+          .setColor(embedColor)
+          .setAuthor({
+            name: interaction.guild.name,
+            iconURL: interaction.guild.iconURL({ dynamic: true })
+          })
+          .setThumbnail(interaction.guild.iconURL({ dynamic: true, size: 256 }))
+          .setFooter({
+            text: footer,
+            iconURL: interaction.user.displayAvatarURL({ dynamic: true })
+          })
+          .setTimestamp();
+
+        if (image && /^https?:\/\/.+/i.test(image)) {
+          embed.setImage(image);
+        }
+
+        let pingContent = null;
+        let pingLabel = 'No Ping';
+        if (pingType === 'everyone') {
+          pingContent = '@everyone';
+          pingLabel = '🔔 @everyone';
+        } else if (pingType === 'here') {
+          pingContent = '@here';
+          pingLabel = '🟡 @here';
+        } else if (pingType === 'role' && roleId) {
+          pingContent = `<@&${roleId}>`;
+          pingLabel = `👥 <@&${roleId}>`;
+        }
+
+        try {
+          const sendPayload = { embeds: [embed] };
+          if (pingContent) sendPayload.content = pingContent;
+
+          const sent = await targetChannel.send(sendPayload);
+
+          return interaction.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('✅ Announcement Successfully Broadcasted!')
+                .setDescription(
+                  `Your announcement has been posted in <#${targetChannel.id}>.\n\n` +
+                  `**🔔 Mention Ping:** ${pingLabel}\n` +
+                  `**📝 Title:** ${title}\n` +
+                  `**🔗 Direct Link:** [Click here to view announcement](${sent.url})`
+                )
+                .setColor(config.embedColors?.success || '#57F287')
+                .setTimestamp()
+            ],
+            ephemeral: true
+          });
+        } catch (e) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Announcement Failed', `Could not post announcement: \`${e.message}\``)],
+            ephemeral: true
+          });
+        }
+      }
+
       // Rules Custom Modal Submission
       if (interaction.customId.startsWith('rules_custom_modal_')) {
         const channelId = interaction.customId.replace('rules_custom_modal_', '');
