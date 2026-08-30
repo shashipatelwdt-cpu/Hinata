@@ -15,7 +15,8 @@ let store = {
   tickets: {},
   giveaways: {},
   invites: {},
-  invite_members: {}
+  invite_members: {},
+  bot_meta: {}
 };
 
 // Load database from file
@@ -30,7 +31,8 @@ function loadDatabase() {
         tickets: parsed.tickets || {},
         giveaways: parsed.giveaways || {},
         invites: parsed.invites || {},
-        invite_members: parsed.invite_members || {}
+        invite_members: parsed.invite_members || {},
+        bot_meta: parsed.bot_meta || {}
       };
     } else {
       saveDatabase();
@@ -516,6 +518,20 @@ class DatabaseManager {
       return true;
     }
     return false;
+  }
+
+  // ==========================================
+  // BOT METADATA (Releases & Updates)
+  // ==========================================
+  static getMeta(key) {
+    if (!store.bot_meta) store.bot_meta = {};
+    return store.bot_meta[key] || null;
+  }
+
+  static setMeta(key, value) {
+    if (!store.bot_meta) store.bot_meta = {};
+    store.bot_meta[key] = value;
+    saveDatabase();
   }
 }
 

@@ -1,6 +1,7 @@
 const { ActivityType, Events } = require('discord.js');
 const ServerStats = require('../utils/serverStats');
 const InviteTracker = require('../utils/inviteTracker');
+const UpdateAnnouncer = require('../utils/updateAnnouncer');
 const config = require('../../config.json');
 
 module.exports = {
@@ -12,6 +13,9 @@ module.exports = {
 
     // Initialize Invite Tracker Cache
     InviteTracker.init(client).catch(err => console.error('[INVITE TRACKER INIT ERROR]', err));
+
+    // Send Automatic Update / Deployment announcement to designated channel
+    UpdateAnnouncer.checkAndSendUpdateAnnouncement(client).catch(err => console.error('[UPDATE ANNOUNCER ERROR]', err));
 
     const fakeServers = config.fakeServerCount || 5434;
 

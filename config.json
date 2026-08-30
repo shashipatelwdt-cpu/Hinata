@@ -1,6 +1,7 @@
 {
   "botName": "Hinata",
   "defaultPrefix": "h",
+  "updateAnnouncementChannelId": "1543499614139711540",
   "fakeServerCount": 5434,
   "presence": {
     "status": "online",
