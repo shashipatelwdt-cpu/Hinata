@@ -253,6 +253,33 @@ class GuildQueue {
       this.currentProcess = null;
     }
 
+    // 1. Check if voice channel has human members before triggering Autoplay or next song
+    const currentVC = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
+    if (!currentVC) {
+      this.destroy();
+      return;
+    }
+
+    const nonBots = currentVC.members ? currentVC.members.filter(m => !m.user.bot) : [];
+    const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
+
+    if (humanCount === 0) {
+      console.log(`[VC EMPTY] No users in voice channel ${currentVC.name} (${this.guild.id}). Disconnecting.`);
+      if (this.textChannel) {
+        this.textChannel.send({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle('👋 Voice Channel Empty')
+              .setDescription(`Disconnected from **${currentVC.name}** because everyone left the voice channel.`)
+              .setColor(config.embedColors?.neutral || '#2B2D31')
+              .setFooter({ text: `${config.botName || 'Hinata'} • Auto Inactivity Leave` })
+          ]
+        }).then(m => setTimeout(() => m.delete().catch(() => null), 15000)).catch(() => null);
+      }
+      this.destroy();
+      return;
+    }
+
     // If queue is empty, trigger Smart Autoplay / Radio (Spotify-like taste match)
     if (this.songs.length === 0 && this.autoplay && this.currentSong) {
       const prevSong = this.currentSong;
@@ -622,7 +649,7 @@ class GuildQueue {
     return this.autoplay;
   }
 
-  startEmptyChannelTimer(timeoutMs = 60000) {
+  startEmptyChannelTimer(timeoutMs = 15000) {
     if (this.emptyTimeout) return;
 
     this.emptyTimeout = setTimeout(() => {

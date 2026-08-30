@@ -59,7 +59,7 @@ module.exports = {
     if (humanCount === 0) {
       // Channel is empty (no humans present)
       if (queue) {
-        queue.startEmptyChannelTimer(60000); // 60 seconds grace period
+        queue.startEmptyChannelTimer(15000); // 15 seconds grace period
       } else {
         if (!standaloneEmptyTimers.has(guild.id)) {
           const timer = setTimeout(() => {
@@ -68,7 +68,7 @@ module.exports = {
             if (conn) {
               try { conn.destroy(); } catch {}
             }
-          }, 60000);
+          }, 15000);
           standaloneEmptyTimers.set(guild.id, timer);
         }
       }

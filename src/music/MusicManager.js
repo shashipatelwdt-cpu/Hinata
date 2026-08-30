@@ -1,9 +1,11 @@
 const { joinVoiceChannel } = require('@discordjs/voice');
+const { EmbedBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const play = require('play-dl');
 const ytSearch = require('yt-search');
 const GuildQueue = require('./GuildQueue');
 const { getYtDlpPath } = require('./ytUtils');
+const config = require('../../config.json');
 
 let InnertubeClass = null;
 let UniversalCacheClass = null;
@@ -65,6 +67,48 @@ class MusicManager {
     this.scInitPromise = null;
     this.initSoundCloud().catch(() => null);
     this.getInnertube().catch(() => null);
+    this.startEmptyWatchdog();
+  }
+
+  startEmptyWatchdog() {
+    setInterval(() => {
+      try {
+        for (const [guildId, queue] of this.queues.entries()) {
+          const currentVC = queue.guild?.members?.me?.voice?.channel || queue.voiceChannel;
+          if (!currentVC) {
+            queue.destroy();
+            continue;
+          }
+
+          const nonBots = currentVC.members ? currentVC.members.filter(m => !m.user.bot) : [];
+          const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
+
+          if (humanCount === 0) {
+            if (!queue.emptySince) {
+              queue.emptySince = Date.now();
+            } else if (Date.now() - queue.emptySince >= 15000) { // 15 seconds empty
+              console.log(`[WATCHDOG] VC ${currentVC.name} in guild ${guildId} was empty for >15s. Disconnecting.`);
+              if (queue.textChannel) {
+                queue.textChannel.send({
+                  embeds: [
+                    new EmbedBuilder()
+                      .setTitle('👋 Voice Channel Empty')
+                      .setDescription(`Disconnected from **${currentVC.name}** because everyone left the voice channel.`)
+                      .setColor(config.embedColors?.neutral || '#2B2D31')
+                      .setFooter({ text: `${config.botName || 'Hinata'} • Auto VC Leave` })
+                  ]
+                }).then(m => setTimeout(() => m.delete().catch(() => null), 12000)).catch(() => null);
+              }
+              queue.destroy();
+            }
+          } else {
+            queue.emptySince = null;
+          }
+        }
+      } catch (err) {
+        console.warn('[WATCHDOG ERROR]:', err.message);
+      }
+    }, 10000);
   }
 
   async getInnertube() {
