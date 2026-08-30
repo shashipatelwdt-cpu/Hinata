@@ -24,7 +24,7 @@ try {
 
 function extractYouTubeVideoId(url) {
   if (!url || typeof url !== 'string') return null;
-  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
   return match ? match[1] : null;
 }
 
@@ -491,7 +491,7 @@ class MusicManager {
               url: `https://www.youtube.com/watch?v=${videoId}`,
               duration: ytRes.duration?.timestamp || ytRes.timestamp || 'Unknown',
               durationSec: ytRes.duration?.seconds || ytRes.seconds || 0,
-              thumbnail: ytRes.thumbnail || ytRes.image,
+              thumbnail: ytRes.thumbnail || ytRes.image || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
               author: ytRes.author?.name || 'YouTube',
               requester,
               source: 'youtube'
@@ -500,6 +500,17 @@ class MusicManager {
         } catch (ytErr) {
           console.warn('[YT VIDEO ID SEARCH ERROR]:', ytErr.message);
         }
+
+        return [{
+          title: 'YouTube Track',
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          duration: 'Unknown',
+          durationSec: 0,
+          thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+          author: 'YouTube',
+          requester,
+          source: 'youtube'
+        }];
       }
 
       // 4. SoundCloud Track Link

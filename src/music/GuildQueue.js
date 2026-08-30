@@ -49,7 +49,7 @@ function cleanSongTitle(title) {
 
 function extractYouTubeVideoId(url) {
   if (!url || typeof url !== 'string') return null;
-  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
   return match ? match[1] : null;
 }
 
@@ -186,16 +186,20 @@ class GuildQueue {
 
   /**
    * Resilient Multi-Tier Stream Resolver
-   * Tier 1: Direct SoundCloud URL stream (if track URL is already SoundCloud)
-   * Tier 2: Ultra-Fast SoundCloud Search & Stream (instant <800ms resolution, 0 IP blocks, 100% reliable)
-   * Tier 3: yt-dlp native audio pipe with first-chunk buffering (ensures Discord AudioPlayer never receives empty buffer)
-   * Tier 4: play-dl direct stream fallback
+   * Tier 1: Direct SoundCloud stream (if track URL is already SoundCloud)
+   * Tier 2: Direct yt-dlp native audio pipe for YouTube URLs (optimized android+web player client with 25s buffer window)
+   * Tier 3: Ultra-Fast SoundCloud Search & Stream (for generic songs or search queries)
+   * Tier 4: yt-dlp fallback (for non-YouTube songs)
+   * Tier 5: play-dl direct stream fallback
    */
   async getLiveAudioStream(song) {
     if (!song) return null;
 
+    const isYouTube = song.url && (song.url.includes('youtube.com') || song.url.includes('youtu.be') || song.source === 'youtube');
+    const isSoundCloud = song.url && song.url.includes('soundcloud.com');
+
     // 1. Direct SoundCloud stream if URL is SoundCloud
-    if (song.url && song.url.includes('soundcloud.com')) {
+    if (isSoundCloud) {
       try {
         await this.manager.initSoundCloud();
         const scStream = await play.stream(song.url);
@@ -207,7 +211,76 @@ class GuildQueue {
       }
     }
 
-    // 2. High-Speed SoundCloud Smart Search & Stream (Instant playback, zero stalls, works everywhere)
+    // 2. Direct yt-dlp stream if URL is YouTube
+    if (isYouTube) {
+      const ytDlpPath = getYtDlpPath();
+      if (ytDlpPath) {
+        try {
+          const { PassThrough } = require('stream');
+          const ytStreamResult = await new Promise((resolve) => {
+            let isResolved = false;
+            const ytProcess = spawn(ytDlpPath, [
+              song.url,
+              '-o', '-',
+              '-f', 'ba/b',
+              '--extractor-args', 'youtube:player_client=android,web',
+              '--no-playlist',
+              '--no-check-certificates',
+              '--no-warnings',
+              '--limit-rate', '3M',
+              '--buffer-size', '128K'
+            ], {
+              stdio: ['ignore', 'pipe', 'ignore']
+            });
+
+            const passThrough = new PassThrough();
+
+            const timeout = setTimeout(() => {
+              if (!isResolved) {
+                isResolved = true;
+                try { ytProcess.kill(); } catch {}
+                resolve(null);
+              }
+            }, 25000);
+
+            ytProcess.stdout.once('data', (chunk) => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                passThrough.write(chunk);
+                ytProcess.stdout.pipe(passThrough);
+                resolve({ stream: passThrough, process: ytProcess });
+              }
+            });
+
+            ytProcess.on('error', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve(null);
+              }
+            });
+
+            ytProcess.on('close', (code) => {
+              if (!isResolved && code !== 0) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve(null);
+              }
+            });
+          });
+
+          if (ytStreamResult && ytStreamResult.stream) {
+            this.currentProcess = ytStreamResult.process;
+            return { stream: ytStreamResult.stream, type: StreamType.Arbitrary };
+          }
+        } catch (ytErr) {
+          console.warn('[YT-DLP BUFFERED STREAM ERROR]:', ytErr.message);
+        }
+      }
+    }
+
+    // 3. SoundCloud Search & Stream (for keyword searches or YouTube fallback)
     try {
       await this.manager.initSoundCloud();
       const cleanTitle = cleanSongTitle(song.title || '');
@@ -215,7 +288,6 @@ class GuildQueue {
 
       const scResults = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 4 });
       if (scResults && scResults.length > 0) {
-        // Pick best matching track (prioritizing non-remix if original title didn't specify remix)
         let chosen = scResults[0];
         const isRemixSearch = /remix|lofi|slowed/i.test(cleanTitle);
         if (!isRemixSearch) {
@@ -223,8 +295,9 @@ class GuildQueue {
           if (nonRemix) chosen = nonRemix;
         }
 
-        if (chosen && chosen.url) {
-          const scStream = await play.stream(chosen.url);
+        const targetUrl = chosen?.permalink || chosen?.url;
+        if (targetUrl) {
+          const scStream = await play.stream(targetUrl);
           if (scStream && scStream.stream) {
             return { stream: scStream.stream, type: scStream.type || StreamType.Arbitrary };
           }
@@ -234,74 +307,76 @@ class GuildQueue {
       console.warn('[SOUNDCLOUD SEARCH STREAM ERROR]:', scSearchErr.message);
     }
 
-    // 3. YouTube yt-dlp native audio pipe with First-Chunk Buffering
-    const ytDlpPath = getYtDlpPath();
-    if (ytDlpPath && song.url && (song.url.includes('youtube.com') || song.url.includes('youtu.be'))) {
-      try {
-        const { PassThrough } = require('stream');
-        const ytStreamResult = await new Promise((resolve) => {
-          let isResolved = false;
-          const ytProcess = spawn(ytDlpPath, [
-            song.url,
-            '-o', '-',
-            '-f', 'ba/b',
-            '--extractor-args', 'youtube:player_client=android,mweb,web',
-            '--no-playlist',
-            '--no-check-certificates',
-            '--no-warnings',
-            '--limit-rate', '3M',
-            '--buffer-size', '128K'
-          ], {
-            stdio: ['ignore', 'pipe', 'ignore']
+    // 4. yt-dlp fallback if not previously attempted
+    if (!isYouTube) {
+      const ytDlpPath = getYtDlpPath();
+      if (ytDlpPath && song.url) {
+        try {
+          const { PassThrough } = require('stream');
+          const ytStreamResult = await new Promise((resolve) => {
+            let isResolved = false;
+            const ytProcess = spawn(ytDlpPath, [
+              song.url,
+              '-o', '-',
+              '-f', 'ba/b',
+              '--extractor-args', 'youtube:player_client=android,web',
+              '--no-playlist',
+              '--no-check-certificates',
+              '--no-warnings',
+              '--limit-rate', '3M',
+              '--buffer-size', '128K'
+            ], {
+              stdio: ['ignore', 'pipe', 'ignore']
+            });
+
+            const passThrough = new PassThrough();
+
+            const timeout = setTimeout(() => {
+              if (!isResolved) {
+                isResolved = true;
+                try { ytProcess.kill(); } catch {}
+                resolve(null);
+              }
+            }, 25000);
+
+            ytProcess.stdout.once('data', (chunk) => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                passThrough.write(chunk);
+                ytProcess.stdout.pipe(passThrough);
+                resolve({ stream: passThrough, process: ytProcess });
+              }
+            });
+
+            ytProcess.on('error', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve(null);
+              }
+            });
+
+            ytProcess.on('close', (code) => {
+              if (!isResolved && code !== 0) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve(null);
+              }
+            });
           });
 
-          const passThrough = new PassThrough();
-
-          const timeout = setTimeout(() => {
-            if (!isResolved) {
-              isResolved = true;
-              try { ytProcess.kill(); } catch {}
-              resolve(null);
-            }
-          }, 8000);
-
-          ytProcess.stdout.once('data', (chunk) => {
-            if (!isResolved) {
-              isResolved = true;
-              clearTimeout(timeout);
-              passThrough.write(chunk);
-              ytProcess.stdout.pipe(passThrough);
-              resolve({ stream: passThrough, process: ytProcess });
-            }
-          });
-
-          ytProcess.on('error', () => {
-            if (!isResolved) {
-              isResolved = true;
-              clearTimeout(timeout);
-              resolve(null);
-            }
-          });
-
-          ytProcess.on('close', (code) => {
-            if (!isResolved && code !== 0) {
-              isResolved = true;
-              clearTimeout(timeout);
-              resolve(null);
-            }
-          });
-        });
-
-        if (ytStreamResult && ytStreamResult.stream) {
-          this.currentProcess = ytStreamResult.process;
-          return { stream: ytStreamResult.stream, type: StreamType.Arbitrary };
+          if (ytStreamResult && ytStreamResult.stream) {
+            this.currentProcess = ytStreamResult.process;
+            return { stream: ytStreamResult.stream, type: StreamType.Arbitrary };
+          }
+        } catch (ytErr) {
+          console.warn('[YT-DLP FALLBACK ERROR]:', ytErr.message);
         }
-      } catch (ytErr) {
-        console.warn('[YT-DLP BUFFERED STREAM ERROR]:', ytErr.message);
       }
     }
 
-    // 4. play-dl direct stream fallback
+    // 5. play-dl direct stream fallback
     if (song.url) {
       try {
         const directStream = await play.stream(song.url, { discordPlayerCompatibility: true });
