@@ -1604,7 +1604,7 @@ module.exports = {
           });
         }
 
-        const targetChannel = interaction.guild.channels.cache.get(welcome.channelId);
+        const targetChannel = interaction.guild.channels.cache.get(welcome.channelId) || await interaction.guild.channels.fetch(welcome.channelId).catch(() => null);
         if (!targetChannel) {
           return interaction.reply({
             embeds: [EmbedUtils.error('Channel Error', 'The configured welcome channel could not be found.')],

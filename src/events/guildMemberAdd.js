@@ -32,27 +32,33 @@ module.exports = {
     const guildSettings = DatabaseManager.getGuild(guild.id);
     const welcome = { ...config.defaultSettings.welcome, ...(guildSettings.welcome || {}) };
 
-    // 2. Auto-Role assignment
-    const autorole = guildSettings.autorole || {
-      enabled: !!(welcome.roleId || welcome.botRoleId),
-      humanRoleId: welcome.roleId || null,
-      botRoleId: welcome.botRoleId || null
-    };
+    // 2. Robust Auto-Role Assignment
+    const autorole = guildSettings.autorole || {};
+    const humanRoleId = autorole.humanRoleId || welcome.roleId || null;
+    const botRoleId = autorole.botRoleId || welcome.botRoleId || null;
+    
+    // Auto-role is active if explicitly enabled or if a role is configured and not explicitly toggled off
+    const isAutoRoleActive = (autorole.enabled === true) || (autorole.enabled !== false && (!!humanRoleId || !!botRoleId));
 
-    if (autorole.enabled !== false) {
+    if (isAutoRoleActive) {
       try {
         const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
-        const targetRoleId = member.user.bot ? (autorole.botRoleId || welcome.botRoleId) : (autorole.humanRoleId || welcome.roleId);
+        const targetRoleId = member.user.bot ? (botRoleId || humanRoleId) : humanRoleId;
 
         if (targetRoleId && botMember) {
           const targetRole = guild.roles.cache.get(targetRoleId) || await guild.roles.fetch(targetRoleId).catch(() => null);
           if (targetRole) {
-            if (!botMember.permissions.has('ManageRoles')) {
-              console.warn(`[AUTOROLE WARNING] Bot lacks 'Manage Roles' permission in guild ${guild.name} (${guild.id}).`);
-            } else if (botMember.roles.highest.position <= targetRole.position) {
-              console.warn(`[AUTOROLE HIERARCHY WARNING] Bot highest role (${botMember.roles.highest.name}) is lower or equal to target role (${targetRole.name}) in ${guild.name}.`);
+            const hasManageRoles = botMember.permissions.has('ManageRoles') || botMember.permissions.has('Administrator');
+            const canManageRole = botMember.roles.highest.position > targetRole.position;
+
+            if (!hasManageRoles) {
+              console.warn(`[AUTOROLE PERMISSION ERROR] Bot lacks 'Manage Roles' / 'Administrator' permission in guild "${guild.name}" (${guild.id}).`);
+            } else if (!canManageRole) {
+              console.warn(`[AUTOROLE HIERARCHY ERROR] Target role "${targetRole.name}" is higher or equal to Hinata's highest role ("${botMember.roles.highest.name}") in "${guild.name}". Please move Hinata's role above "${targetRole.name}" in Server Settings > Roles.`);
             } else {
-              await member.roles.add(targetRole, `Hinata Auto-Role: New ${member.user.bot ? 'bot' : 'member'} join`).catch(() => null);
+              await member.roles.add(targetRole, `Hinata Auto-Role: New ${member.user.bot ? 'bot' : 'member'} join`).catch(roleErr => {
+                console.error(`[AUTOROLE ASSIGN ERROR in ${guild.name}]:`, roleErr.message);
+              });
               
               // Audit log for role assignment
               await ModLogger.log(guild, {
@@ -65,6 +71,8 @@ module.exports = {
                 ]
               }).catch(() => null);
             }
+          } else {
+            console.warn(`[AUTOROLE WARNING] Configured role ID ${targetRoleId} not found in guild "${guild.name}".`);
           }
         }
       } catch (err) {
@@ -101,7 +109,7 @@ module.exports = {
       fields: inviteFields
     }).catch(() => null);
 
-    // 4. Welcome Message in Channel
+    // 4. Welcome Message in Channel (STRICTLY in configured welcome channel - NEVER general chat)
     if (welcome.enabled) {
       let targetChannel = null;
 
@@ -110,19 +118,16 @@ module.exports = {
         targetChannel = guild.channels.cache.get(welcome.channelId) || await guild.channels.fetch(welcome.channelId).catch(() => null);
       }
 
-      // 4b. Smart Fallback if configured channel is missing or deleted
+      // 4b. Strict Dedicated Channel Fallback (Only if explicitly named welcome/joins - NEVER general or system channel)
       if (!targetChannel || !targetChannel.isTextBased()) {
-        if (guild.systemChannel && guild.systemChannel.isTextBased()) {
-          targetChannel = guild.systemChannel;
-        } else {
-          targetChannel = guild.channels.cache.find(c => 
-            c.isTextBased() && 
-            /welcome|arrival|join|lobby|general/i.test(c.name) &&
-            c.permissionsFor(guild.members.me || guild.client.user)?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])
-          );
-        }
+        targetChannel = guild.channels.cache.find(c => 
+          c.isTextBased() && 
+          /^(welcome|welcome-chat|welcome-lounge|joins|arrivals|member-log)$/i.test(c.name) &&
+          c.permissionsFor(guild.members.me || guild.client.user)?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])
+        );
       }
 
+      // If no valid welcome channel found, skip cleanly rather than spamming general chat
       if (targetChannel && targetChannel.isTextBased()) {
         const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
         const perms = targetChannel.permissionsFor(botMember);

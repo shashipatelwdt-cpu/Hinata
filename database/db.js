@@ -87,6 +87,10 @@ class DatabaseManager {
           botRoleId: store.guild_settings[guildId].welcome?.botRoleId || null
         };
         saveDatabase();
+      } else if (!store.guild_settings[guildId].autorole.humanRoleId && store.guild_settings[guildId].welcome?.roleId) {
+        store.guild_settings[guildId].autorole.humanRoleId = store.guild_settings[guildId].welcome.roleId;
+        store.guild_settings[guildId].autorole.enabled = true;
+        saveDatabase();
       }
       if (!store.guild_settings[guildId].rules) {
         store.guild_settings[guildId].rules = {};
@@ -131,13 +135,34 @@ class DatabaseManager {
 
   static getAutorole(guildId) {
     const guild = this.getGuild(guildId);
-    return guild.autorole || { enabled: false, humanRoleId: null, botRoleId: null };
+    const autorole = guild.autorole || {};
+    const humanRoleId = autorole.humanRoleId || guild.welcome?.roleId || null;
+    const botRoleId = autorole.botRoleId || guild.welcome?.botRoleId || null;
+    const enabled = (autorole.enabled === true) || (autorole.enabled !== false && (!!humanRoleId || !!botRoleId));
+
+    return {
+      enabled,
+      humanRoleId,
+      botRoleId
+    };
   }
 
   static setWelcomeConfig(guildId, config) {
     const guild = this.getGuild(guildId);
     guild.welcome = { ...(guild.welcome || {}), ...config };
+
+    // Auto-sync with autorole if roles are defined
+    if (config.roleId || config.botRoleId) {
+      if (!guild.autorole) {
+        guild.autorole = { enabled: true, humanRoleId: null, botRoleId: null };
+      }
+      if (config.roleId) guild.autorole.humanRoleId = config.roleId;
+      if (config.botRoleId) guild.autorole.botRoleId = config.botRoleId;
+      guild.autorole.enabled = true;
+    }
+
     saveDatabase();
+    return guild.welcome;
   }
 
   static setLeaveConfig(guildId, config) {
