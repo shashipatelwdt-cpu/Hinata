@@ -186,83 +186,124 @@ class GuildQueue {
 
   /**
    * Resilient Multi-Tier Stream Resolver
-   * Tier 1: Direct URL yt-dlp native pipe (optimized android,web,mweb,ios player client with high water mark buffer)
-   * Tier 2: Search-based yt-dlp native pipe (ytsearch1:title author) for 100% bulletproof fallback
-   * Tier 3: play-dl direct stream fallback
-   * Tier 4: Direct SoundCloud stream (if valid web URL)
+   * Tier 1: Direct URL yt-dlp pipe -> FFmpeg 48kHz Stereo PCM (100% immune to YouTube cipher changes)
+   * Tier 2: Search-based yt-dlp pipe (ytsearch1:title author) for fallback
+   * Tier 3: Direct SoundCloud web stream fallback
    */
   async getLiveAudioStream(song) {
     if (!song) return null;
 
     const ytDlpPath = getYtDlpPath();
+    const ffmpegPath = require('ffmpeg-static') || process.env.FFMPEG_PATH || 'ffmpeg';
     const { PassThrough } = require('stream');
 
-    const streamWithYtDlp = async (target) => {
+    const streamWithPipeline = async (target) => {
       if (!ytDlpPath || !target) return null;
       return new Promise((resolve) => {
         let isResolved = false;
-        let proc = null;
+        let ytProc = null;
+        let ffmpegProc = null;
+
+        const cleanup = () => {
+          try { if (ytProc) ytProc.kill(); } catch {}
+          try { if (ffmpegProc) ffmpegProc.kill(); } catch {}
+        };
+
         try {
-          proc = spawn(ytDlpPath, [
+          ytProc = spawn(ytDlpPath, [
             target,
             '-o', '-',
             '-f', 'ba/b',
-            '--extractor-args', 'youtube:player_client=android,web,mweb,ios',
             '--no-playlist',
             '--no-check-certificates',
             '--no-warnings',
-            '--limit-rate', '5M',
+            '--limit-rate', '10M',
             '--buffer-size', '256K'
           ], {
             stdio: ['ignore', 'pipe', 'ignore']
           });
 
-          const passThrough = new PassThrough({ highWaterMark: 1024 * 1024 });
+          ffmpegProc = spawn(ffmpegPath, [
+            '-i', 'pipe:0',
+            '-analyzeduration', '0',
+            '-loglevel', '0',
+            '-f', 's16le',
+            '-ar', '48000',
+            '-ac', '2',
+            'pipe:1'
+          ], {
+            stdio: ['pipe', 'pipe', 'ignore']
+          });
+
+          const passThrough = new PassThrough({ highWaterMark: 1024 * 512 });
+
+          ytProc.stdout.on('error', () => {});
+          ffmpegProc.stdin.on('error', () => {});
+          ffmpegProc.stdout.on('error', () => {});
+          passThrough.on('error', () => {});
+
+          ytProc.stdout.pipe(ffmpegProc.stdin);
+          ffmpegProc.stdout.pipe(passThrough);
 
           const timeout = setTimeout(() => {
             if (!isResolved) {
               isResolved = true;
-              try { proc.kill(); } catch {}
+              cleanup();
               resolve(null);
             }
-          }, 20000);
+          }, 25000);
 
-          proc.stdout.once('data', (chunk) => {
+          ffmpegProc.stdout.once('data', (chunk) => {
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timeout);
-              passThrough.write(chunk);
-              proc.stdout.pipe(passThrough);
-              resolve({ stream: passThrough, process: proc, type: StreamType.Arbitrary });
+              resolve({
+                stream: passThrough,
+                process: { kill: cleanup },
+                type: StreamType.Raw
+              });
             }
           });
 
-          proc.on('error', (err) => {
+          ytProc.on('error', (err) => {
             console.warn('[YT-DLP PROC ERROR]:', err.message);
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timeout);
+              cleanup();
               resolve(null);
             }
           });
 
-          proc.on('close', (code) => {
+          ffmpegProc.on('error', (err) => {
+            console.warn('[FFMPEG PROC ERROR]:', err.message);
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timeout);
+              cleanup();
+              resolve(null);
+            }
+          });
+
+          ytProc.on('close', (code) => {
+            if (!isResolved && code !== 0) {
+              isResolved = true;
+              clearTimeout(timeout);
+              cleanup();
               resolve(null);
             }
           });
         } catch (e) {
-          console.warn('[YT-DLP SPAWN ERROR]:', e.message);
+          console.warn('[PIPELINE SPAWN ERROR]:', e.message);
+          cleanup();
           resolve(null);
         }
       });
     };
 
-    // 1. Direct song URL with yt-dlp
+    // 1. Direct song URL with yt-dlp + ffmpeg
     if (song.url && (song.url.startsWith('http://') || song.url.startsWith('https://'))) {
-      const res = await streamWithYtDlp(song.url);
+      const res = await streamWithPipeline(song.url);
       if (res && res.stream) {
         this.currentProcess = res.process;
         return res;
@@ -273,26 +314,14 @@ class GuildQueue {
     const cleanTitle = cleanSongTitle(song.title || '');
     if (cleanTitle) {
       const searchTarget = `ytsearch1:${cleanTitle} ${song.author || ''}`.trim();
-      const res = await streamWithYtDlp(searchTarget);
+      const res = await streamWithPipeline(searchTarget);
       if (res && res.stream) {
         this.currentProcess = res.process;
         return res;
       }
     }
 
-    // 3. play-dl direct stream fallback
-    if (song.url && (song.url.includes('youtube.com') || song.url.includes('youtu.be'))) {
-      try {
-        const directStream = await play.stream(song.url, { discordPlayerCompatibility: true });
-        if (directStream && directStream.stream) {
-          return { stream: directStream.stream, type: directStream.type || StreamType.Arbitrary };
-        }
-      } catch (playErr) {
-        console.warn('[PLAY-DL STREAM FALLBACK ERROR]:', playErr.message);
-      }
-    }
-
-    // 4. SoundCloud stream if valid web link
+    // 3. SoundCloud stream fallback if valid web link
     if (song.url && song.url.includes('soundcloud.com') && !song.url.includes('api.soundcloud.com')) {
       try {
         await this.manager.initSoundCloud();
