@@ -13,10 +13,12 @@ module.exports = {
     // 0. Update Live Server Stats Counters
     ServerStats.updateGuildStats(guild).catch(() => null);
 
-    // 1. Process Invite Tracker
+    // 1. Process Invite Tracker with timeout protection
     let inviteInfo = null;
     try {
-      inviteInfo = await InviteTracker.trackJoin(member);
+      const trackerPromise = InviteTracker.trackJoin(member);
+      const timeoutPromise = new Promise(res => setTimeout(() => res(null), 2500));
+      inviteInfo = await Promise.race([trackerPromise, timeoutPromise]);
     } catch (err) {
       console.error('[INVITE TRACKER JOIN ERROR]', err);
     }
@@ -39,18 +41,18 @@ module.exports = {
 
     if (autorole.enabled !== false) {
       try {
-        const botMember = guild.members.me;
+        const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
         const targetRoleId = member.user.bot ? (autorole.botRoleId || welcome.botRoleId) : (autorole.humanRoleId || welcome.roleId);
 
-        if (targetRoleId) {
-          const targetRole = guild.roles.cache.get(targetRoleId);
+        if (targetRoleId && botMember) {
+          const targetRole = guild.roles.cache.get(targetRoleId) || await guild.roles.fetch(targetRoleId).catch(() => null);
           if (targetRole) {
             if (!botMember.permissions.has('ManageRoles')) {
               console.warn(`[AUTOROLE WARNING] Bot lacks 'Manage Roles' permission in guild ${guild.name} (${guild.id}).`);
             } else if (botMember.roles.highest.position <= targetRole.position) {
-              console.warn(`[AUTOROLE HIERARCHY WARNING] Bot's highest role (${botMember.roles.highest.name}) is lower or equal to target role (${targetRole.name}) in ${guild.name}.`);
+              console.warn(`[AUTOROLE HIERARCHY WARNING] Bot highest role (${botMember.roles.highest.name}) is lower or equal to target role (${targetRole.name}) in ${guild.name}.`);
             } else {
-              await member.roles.add(targetRole, `Hinata Auto-Role: New ${member.user.bot ? 'bot' : 'member'} join`);
+              await member.roles.add(targetRole, `Hinata Auto-Role: New ${member.user.bot ? 'bot' : 'member'} join`).catch(() => null);
               
               // Audit log for role assignment
               await ModLogger.log(guild, {
@@ -61,7 +63,7 @@ module.exports = {
                   { name: '🎭 Role Assigned', value: `${targetRole.name} (<@&${targetRole.id}>)`, inline: true },
                   { name: '👤 Type', value: member.user.bot ? '🤖 Bot Account' : '👤 Human Member', inline: true }
                 ]
-              });
+              }).catch(() => null);
             }
           }
         }
@@ -97,69 +99,99 @@ module.exports = {
       target: member.user,
       color: isFake ? config.embedColors.warning : config.embedColors.success,
       fields: inviteFields
-    });
+    }).catch(() => null);
 
     // 4. Welcome Message in Channel
-    if (welcome.enabled && welcome.channelId) {
-      const channel = guild.channels.cache.get(welcome.channelId);
-      if (channel && channel.isTextBased()) {
-        const inviterText = inviter ? `<@${inviter.id}>` : (isVanity ? 'Server Vanity URL' : 'Direct Link');
-        const inviterTag = inviter ? inviter.tag : 'Vanity';
-        const inviterInvites = inviterStats ? inviterStats.total.toString() : '0';
+    if (welcome.enabled) {
+      let targetChannel = null;
 
-        const rawMsg = welcome.message || config.defaultSettings.welcome.message;
-        const formattedMsg = rawMsg
-          .replace(/{user}/g, `<@${member.user.id}>`)
-          .replace(/{username}/g, member.user.username)
-          .replace(/{tag}/g, member.user.tag)
-          .replace(/{server}/g, guild.name)
-          .replace(/{count}/g, guild.memberCount.toString())
-          .replace(/{inviter}/g, inviterText)
-          .replace(/{inviter_tag}/g, inviterTag)
-          .replace(/{inviter_invites}/g, inviterInvites)
-          .replace(/{invites}/g, inviterInvites);
+      // 4a. Fetch configured channel with cache fallback
+      if (welcome.channelId) {
+        targetChannel = guild.channels.cache.get(welcome.channelId) || await guild.channels.fetch(welcome.channelId).catch(() => null);
+      }
 
-        const rawTitle = welcome.title || `Welcome to ${guild.name}! 🎉`;
-        const formattedTitle = rawTitle
-          .replace(/{server}/g, guild.name)
-          .replace(/{username}/g, member.user.username);
+      // 4b. Smart Fallback if configured channel is missing or deleted
+      if (!targetChannel || !targetChannel.isTextBased()) {
+        if (guild.systemChannel && guild.systemChannel.isTextBased()) {
+          targetChannel = guild.systemChannel;
+        } else {
+          targetChannel = guild.channels.cache.find(c => 
+            c.isTextBased() && 
+            /welcome|arrival|join|lobby|general/i.test(c.name) &&
+            c.permissionsFor(guild.members.me || guild.client.user)?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])
+          );
+        }
+      }
 
-        const embed = new EmbedBuilder()
-          .setColor(welcome.color || config.embedColors.primary)
-          .setAuthor({ name: formattedTitle, iconURL: guild.iconURL() })
-          .setDescription(formattedMsg)
-          .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
-          .addFields(
-            { name: '👤 Account Age', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-            { name: '📊 Member Position', value: `**#${guild.memberCount}**`, inline: true }
+      if (targetChannel && targetChannel.isTextBased()) {
+        const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
+        const perms = targetChannel.permissionsFor(botMember);
+
+        if (perms && perms.has('ViewChannel') && perms.has('SendMessages') && perms.has('EmbedLinks')) {
+          const inviterText = inviter ? `<@${inviter.id}>` : (isVanity ? 'Server Vanity URL' : 'Direct Link');
+          const inviterTag = inviter ? inviter.tag : 'Vanity';
+          const inviterInvites = inviterStats ? inviterStats.total.toString() : '0';
+
+          const rawMsg = welcome.message || config.defaultSettings.welcome.message;
+          const formattedMsg = rawMsg
+            .replace(/{user}/g, `<@${member.user.id}>`)
+            .replace(/{username}/g, member.user.username)
+            .replace(/{tag}/g, member.user.tag)
+            .replace(/{server}/g, guild.name)
+            .replace(/{count}/g, guild.memberCount.toString())
+            .replace(/{inviter}/g, inviterText)
+            .replace(/{inviter_tag}/g, inviterTag)
+            .replace(/{inviter_invites}/g, inviterInvites)
+            .replace(/{invites}/g, inviterInvites);
+
+          const rawTitle = welcome.title || `Welcome to ${guild.name}! 🎉`;
+          const formattedTitle = rawTitle
+            .replace(/{server}/g, guild.name)
+            .replace(/{username}/g, member.user.username);
+
+          const embed = new EmbedBuilder()
+            .setColor(welcome.color || config.embedColors.primary)
+            .setAuthor({ name: formattedTitle, iconURL: guild.iconURL() })
+            .setDescription(formattedMsg)
+            .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
+            .addFields(
+              { name: '👤 Account Age', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+              { name: '📊 Member Position', value: `**#${guild.memberCount}**`, inline: true }
+            );
+
+          if (inviter) {
+            embed.addFields({
+              name: '🔗 Invited By',
+              value: `${inviterText} (${inviterInvites} invites)`,
+              inline: true
+            });
+          }
+
+          embed
+            .setFooter({ text: `User ID: ${member.user.id}` })
+            .setTimestamp();
+
+          if (welcome.banner) {
+            embed.setImage(welcome.banner);
+          }
+
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setLabel('📜 Rules').setStyle(ButtonStyle.Primary).setCustomId('welcome_rules_btn'),
+            new ButtonBuilder().setLabel('🎭 Self-Roles').setStyle(ButtonStyle.Secondary).setCustomId('welcome_roles_btn')
           );
 
-        if (inviter) {
-          embed.addFields({
-            name: '🔗 Invited By',
-            value: `${inviterText} (${inviterInvites} invites)`,
-            inline: true
+          await targetChannel.send({
+            content: `👋 Welcome <@${member.user.id}>!`,
+            embeds: [embed],
+            components: welcome.showButtons !== false ? [row] : []
+          }).catch(sendErr => {
+            console.error(`[WELCOME SEND ERROR in ${guild.name}]:`, sendErr.message);
           });
+        } else {
+          console.warn(`[WELCOME PERMISSION WARN] Bot lacks SendMessages/EmbedLinks in welcome channel #${targetChannel.name} (${guild.name}).`);
         }
-
-        embed
-          .setFooter({ text: `User ID: ${member.user.id}` })
-          .setTimestamp();
-
-        if (welcome.banner) {
-          embed.setImage(welcome.banner);
-        }
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setLabel('📜 Rules').setStyle(ButtonStyle.Primary).setCustomId('welcome_rules_btn'),
-          new ButtonBuilder().setLabel('🎭 Self-Roles').setStyle(ButtonStyle.Secondary).setCustomId('welcome_roles_btn')
-        );
-
-        await channel.send({
-          content: `👋 Welcome <@${member.user.id}>!`,
-          embeds: [embed],
-          components: welcome.showButtons !== false ? [row] : []
-        }).catch(() => null);
+      } else {
+        console.warn(`[WELCOME CHANNEL WARN] No valid text channel found to send welcome message in ${guild.name} (${guild.id}).`);
       }
     }
 
