@@ -1,9 +1,7 @@
-const { Events } = require('discord.js');
+const { Events, EmbedBuilder } = require('discord.js');
 const { getVoiceConnection } = require('@discordjs/voice');
 const MusicManager = require('../music/MusicManager');
-
-// Fallback timer map for non-queue voice connections
-const standaloneEmptyTimers = new Map();
+const config = require('../../config.json');
 
 module.exports = {
   name: Events.VoiceStateUpdate || 'voiceStateUpdate',
@@ -22,10 +20,6 @@ module.exports = {
       if (queue) {
         queue.destroy();
       }
-      if (standaloneEmptyTimers.has(guild.id)) {
-        clearTimeout(standaloneEmptyTimers.get(guild.id));
-        standaloneEmptyTimers.delete(guild.id);
-      }
       return;
     }
 
@@ -40,10 +34,6 @@ module.exports = {
     const botVoiceChannel = botMember.voice?.channel || (queue ? queue.voiceChannel : null);
     if (!botVoiceChannel) {
       if (queue) queue.destroy();
-      if (standaloneEmptyTimers.has(guild.id)) {
-        clearTimeout(standaloneEmptyTimers.get(guild.id));
-        standaloneEmptyTimers.delete(guild.id);
-      }
       return;
     }
 
@@ -57,29 +47,25 @@ module.exports = {
     const humanCount = nonBotMembers.size !== undefined ? nonBotMembers.size : (Array.isArray(nonBotMembers) ? nonBotMembers.length : 0);
 
     if (humanCount === 0) {
-      // Channel is empty (no humans present)
+      // Channel is completely empty -> IMMEDIATELY leave and purge queue
       if (queue) {
-        queue.startEmptyChannelTimer(15000); // 15 seconds grace period
-      } else {
-        if (!standaloneEmptyTimers.has(guild.id)) {
-          const timer = setTimeout(() => {
-            standaloneEmptyTimers.delete(guild.id);
-            const conn = getVoiceConnection(guild.id);
-            if (conn) {
-              try { conn.destroy(); } catch {}
-            }
-          }, 15000);
-          standaloneEmptyTimers.set(guild.id, timer);
+        if (queue.textChannel) {
+          queue.textChannel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('👋 Voice Channel Empty')
+                .setDescription(`Disconnected from **${botVoiceChannel.name || 'Voice Channel'}** and cleared all queued music because everyone left the voice channel.`)
+                .setColor(config.embedColors?.neutral || '#2B2D31')
+                .setFooter({ text: `${config.botName || 'Hinata'} • Auto Leave & Queue Cleared` })
+            ]
+          }).then(m => setTimeout(() => m.delete().catch(() => null), 10000)).catch(() => null);
         }
-      }
-    } else {
-      // Humans are present, cancel any pending auto-leave countdowns
-      if (queue) {
-        queue.cancelEmptyChannelTimer();
-      }
-      if (standaloneEmptyTimers.has(guild.id)) {
-        clearTimeout(standaloneEmptyTimers.get(guild.id));
-        standaloneEmptyTimers.delete(guild.id);
+        queue.destroy();
+      } else {
+        const conn = getVoiceConnection(guild.id);
+        if (conn) {
+          try { conn.destroy(); } catch {}
+        }
       }
     }
   }

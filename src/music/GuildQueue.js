@@ -64,8 +64,8 @@ class GuildQueue {
     // Create audio player with optimal buffering behavior
     this.player = createAudioPlayer({
       behaviors: {
-        noSubscriber: NoSubscriberBehavior.Play,
-        maxMissedFrames: 250
+        noSubscriber: NoSubscriberBehavior.Pause,
+        maxMissedFrames: 500
       }
     });
 
@@ -931,6 +931,10 @@ class GuildQueue {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
     }
+    this.songs = [];
+    this.currentSong = null;
+    this.isPlaying = false;
+    this.isPaused = false;
     try {
       this.player.stop(true);
       if (this.connection && this.connection.state.status !== VoiceConnectionStatus.Destroyed) {

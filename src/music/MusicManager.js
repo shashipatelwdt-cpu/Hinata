@@ -85,31 +85,25 @@ class MusicManager {
           const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
 
           if (humanCount === 0) {
-            if (!queue.emptySince) {
-              queue.emptySince = Date.now();
-            } else if (Date.now() - queue.emptySince >= 15000) { // 15 seconds empty
-              console.log(`[WATCHDOG] VC ${currentVC.name} in guild ${guildId} was empty for >15s. Disconnecting.`);
-              if (queue.textChannel) {
-                queue.textChannel.send({
-                  embeds: [
-                    new EmbedBuilder()
-                      .setTitle('👋 Voice Channel Empty')
-                      .setDescription(`Disconnected from **${currentVC.name}** because everyone left the voice channel.`)
-                      .setColor(config.embedColors?.neutral || '#2B2D31')
-                      .setFooter({ text: `${config.botName || 'Hinata'} • Auto VC Leave` })
-                  ]
-                }).then(m => setTimeout(() => m.delete().catch(() => null), 12000)).catch(() => null);
-              }
-              queue.destroy();
+            console.log(`[WATCHDOG] VC ${currentVC.name} in guild ${guildId} is empty. Disconnecting and clearing queue.`);
+            if (queue.textChannel) {
+              queue.textChannel.send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle('👋 Voice Channel Empty')
+                    .setDescription(`Disconnected from **${currentVC.name}** and purged music queue because the voice channel is empty.`)
+                    .setColor(config.embedColors?.neutral || '#2B2D31')
+                    .setFooter({ text: `${config.botName || 'Hinata'} • Auto Leave & Queue Cleared` })
+                ]
+              }).then(m => setTimeout(() => m.delete().catch(() => null), 10000)).catch(() => null);
             }
-          } else {
-            queue.emptySince = null;
+            queue.destroy();
           }
         }
       } catch (err) {
         console.warn('[WATCHDOG ERROR]:', err.message);
       }
-    }, 10000);
+    }, 5000);
   }
 
   async getInnertube() {
