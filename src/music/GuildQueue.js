@@ -99,8 +99,36 @@ class GuildQueue {
   }
 
   setupListeners() {
-    // Player idle -> only handle if we were previously playing a track
-    this.player.on(AudioPlayerStatus.Idle, (oldState) => {
+    // Player idle handling with premature stream exit protection
+    this.player.on(AudioPlayerStatus.Idle, async (oldState) => {
+      const elapsed = this.currentSong?.startedAt ? (Date.now() - this.currentSong.startedAt) : 0;
+      
+      // If the song supposedly "ended" in under 4 seconds, it was an audio stream failure, NOT a finished song!
+      if (elapsed < 4000 && this.currentSong) {
+        if (!this.currentSong._retried) {
+          this.currentSong._retried = true;
+          console.warn(`[STREAM PREMATURE END] Song "${this.currentSong.title}" stream ended early (${elapsed}ms). Retrying with SoundCloud stream...`);
+          await this.retryWithSoundCloudStream(this.currentSong);
+          return;
+        } else {
+          console.error(`[STREAM FAILED] Song "${this.currentSong.title}" failed after retry. Halting loop.`);
+          this.isPlaying = false;
+          this.stopLiveTimer();
+          if (this.textChannel) {
+            this.textChannel.send({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('⚠️ Audio Stream Notice')
+                  .setDescription(`Could not stream **${this.currentSong.title}** due to cloud provider stream restrictions.\nPlease try searching another song or using a SoundCloud link.`)
+                  .setColor(config.embedColors?.danger || '#ED4245')
+              ]
+            }).then(m => setTimeout(() => m.delete().catch(() => null), 10000)).catch(() => null);
+          }
+          this.handleSongEnd();
+          return;
+        }
+      }
+
       if (oldState.status === AudioPlayerStatus.Playing || oldState.status === AudioPlayerStatus.Buffering) {
         this.isPlaying = false;
         this.stopLiveTimer();
@@ -112,16 +140,6 @@ class GuildQueue {
     this.player.on('error', (error) => {
       console.error(`[MUSIC ERROR in Guild ${this.guild.id}]:`, error.message);
       this.stopLiveTimer();
-      if (this.textChannel) {
-        this.textChannel.send({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle('⚠️ Playback Notice')
-              .setDescription(`Playback finished or encountered an issue with **${this.currentSong ? this.currentSong.title : 'Track'}**.\nAuto-skipping to next song...`)
-              .setColor(config.embedColors?.warning || '#FEE75C')
-          ]
-        }).then(m => setTimeout(() => m.delete().catch(() => null), 8000)).catch(() => null);
-      }
       this.handleSongEnd();
     });
 
@@ -252,6 +270,34 @@ class GuildQueue {
     }
 
     return null;
+  }
+
+  async retryWithSoundCloudStream(song) {
+    try {
+      await this.manager.initSoundCloud();
+      const cleanTitle = cleanSongTitle(song.title || '');
+      const searchKeyword = `${cleanTitle} ${song.author || ''}`.trim();
+      const scResults = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
+      if (scResults && scResults[0]?.url) {
+        const scStream = await play.stream(scResults[0].url);
+        if (scStream && scStream.stream) {
+          const resource = createAudioResource(scStream.stream, {
+            inputType: scStream.type || StreamType.Arbitrary,
+            inlineVolume: true
+          });
+          resource.volume.setVolume(this.volume / 100);
+          this.currentResource = resource;
+          this.player.play(resource);
+          this.isPlaying = true;
+          this.isPaused = false;
+          song.startedAt = Date.now();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[RETRY SOUNDCLOUD STREAM ERROR]:', err.message);
+    }
+    this.handleSongEnd();
   }
 
   async playNext() {

@@ -524,7 +524,27 @@ class MusicManager {
         }
       }
 
-      // 5. Keyword / Search fallback with yt-search
+      // 5. Keyword search: Try SoundCloud first for 100% reliable cloud streaming
+      try {
+        await this.initSoundCloud();
+        const scResults = await play.search(cleanQuery, { source: { soundcloud: 'tracks' }, limit: 5 });
+        if (scResults && scResults.length > 0) {
+          return scResults.slice(0, 1).map(s => ({
+            title: s.name || 'SoundCloud Track',
+            url: s.url,
+            duration: s.durationInSec ? `${Math.floor(s.durationInSec / 60)}:${(s.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
+            durationSec: s.durationInSec || 0,
+            thumbnail: s.thumbnail,
+            author: s.user?.name || 'SoundCloud Artist',
+            requester,
+            source: 'soundcloud'
+          }));
+        }
+      } catch (scErr) {
+        console.warn('[SC KEYWORD SEARCH ERROR]:', scErr.message);
+      }
+
+      // 6. YouTube search fallback
       const searchResults = await ytSearch(cleanQuery);
       if (searchResults && searchResults.videos && searchResults.videos.length > 0) {
         const first = searchResults.videos[0];
