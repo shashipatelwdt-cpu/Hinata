@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 /**
  * Cross-platform yt-dlp binary resolver with automatic permission fixing on Linux/Render
@@ -39,9 +40,20 @@ function getYtDlpPath() {
     return altBin;
   }
 
+  // 4. Check system PATH
+  try {
+    const sysCmd = isPosix ? 'which yt-dlp' : 'where yt-dlp';
+    const out = execSync(sysCmd, { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
+    if (out) {
+      const sysPath = out.split('\n')[0].trim();
+      if (fs.existsSync(sysPath)) return sysPath;
+    }
+  } catch {}
+
   return null;
 }
 
 module.exports = {
   getYtDlpPath
 };
+

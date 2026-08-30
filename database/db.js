@@ -16,7 +16,8 @@ let store = {
   giveaways: {},
   invites: {},
   invite_members: {},
-  bot_meta: {}
+  bot_meta: {},
+  playlists: {}
 };
 
 // Load database from file
@@ -32,7 +33,8 @@ function loadDatabase() {
         giveaways: parsed.giveaways || {},
         invites: parsed.invites || {},
         invite_members: parsed.invite_members || {},
-        bot_meta: parsed.bot_meta || {}
+        bot_meta: parsed.bot_meta || {},
+        playlists: parsed.playlists || {}
       };
     } else {
       saveDatabase();
@@ -561,6 +563,126 @@ class DatabaseManager {
     if (!store.bot_meta) store.bot_meta = {};
     store.bot_meta[key] = value;
     saveDatabase();
+  }
+
+  // ==========================================
+  // SPOTIFY-STYLE CUSTOM USER PLAYLISTS
+  // ==========================================
+  static getUserPlaylists(userId) {
+    if (!store.playlists) store.playlists = {};
+    if (!store.playlists[userId]) return [];
+    return Object.values(store.playlists[userId]);
+  }
+
+  static getPlaylist(userId, name) {
+    if (!store.playlists) store.playlists = {};
+    if (!store.playlists[userId]) return null;
+    const key = String(name).trim().toLowerCase();
+    return store.playlists[userId][key] || null;
+  }
+
+  static createPlaylist(userId, name, description = '') {
+    if (!store.playlists) store.playlists = {};
+    if (!store.playlists[userId]) store.playlists[userId] = {};
+
+    const cleanName = String(name).trim();
+    const key = cleanName.toLowerCase();
+
+    if (store.playlists[userId][key]) {
+      return { success: false, message: `A playlist named **${cleanName}** already exists!` };
+    }
+
+    const existingCount = Object.keys(store.playlists[userId]).length;
+    if (existingCount >= 25) {
+      return { success: false, message: 'You have reached the maximum limit of 25 personal playlists!' };
+    }
+
+    const newPlaylist = {
+      name: cleanName,
+      description: description || 'My custom personal playlist',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      tracks: []
+    };
+
+    store.playlists[userId][key] = newPlaylist;
+    saveDatabase();
+    return { success: true, playlist: newPlaylist, message: `Playlist **${cleanName}** created successfully!` };
+  }
+
+  static deletePlaylist(userId, name) {
+    if (!store.playlists || !store.playlists[userId]) return false;
+    const key = String(name).trim().toLowerCase();
+    if (store.playlists[userId][key]) {
+      delete store.playlists[userId][key];
+      saveDatabase();
+      return true;
+    }
+    return false;
+  }
+
+  static addTrackToPlaylist(userId, name, track) {
+    if (!store.playlists || !store.playlists[userId]) {
+      return { success: false, message: 'Playlist not found!' };
+    }
+    const key = String(name).trim().toLowerCase();
+    const pl = store.playlists[userId][key];
+    if (!pl) {
+      return { success: false, message: `Playlist **${name}** does not exist!` };
+    }
+
+    if (!Array.isArray(pl.tracks)) pl.tracks = [];
+
+    if (pl.tracks.length >= 100) {
+      return { success: false, message: `Playlist **${pl.name}** has reached the maximum 100 tracks limit!` };
+    }
+
+    const trackObj = {
+      title: track.title || 'Untitled Song',
+      url: track.url,
+      duration: track.duration || 'Unknown',
+      durationSec: track.durationSec || 0,
+      thumbnail: track.thumbnail || null,
+      author: track.author || 'Artist',
+      added_at: new Date().toISOString()
+    };
+
+    pl.tracks.push(trackObj);
+    pl.updated_at = new Date().toISOString();
+    saveDatabase();
+    return { success: true, track: trackObj, totalTracks: pl.tracks.length, message: `Added **${trackObj.title}** to **${pl.name}**!` };
+  }
+
+  static removeTrackFromPlaylist(userId, name, index) {
+    if (!store.playlists || !store.playlists[userId]) {
+      return { success: false, message: 'Playlist not found!' };
+    }
+    const key = String(name).trim().toLowerCase();
+    const pl = store.playlists[userId][key];
+    if (!pl || !Array.isArray(pl.tracks)) {
+      return { success: false, message: `Playlist **${name}** does not exist!` };
+    }
+
+    const idx = parseInt(index, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= pl.tracks.length) {
+      return { success: false, message: `Invalid track number! Please select between 1 and ${pl.tracks.length}.` };
+    }
+
+    const removed = pl.tracks.splice(idx, 1)[0];
+    pl.updated_at = new Date().toISOString();
+    saveDatabase();
+    return { success: true, removedTrack: removed, totalTracks: pl.tracks.length, message: `Removed **${removed.title}** from **${pl.name}**.` };
+  }
+
+  static clearPlaylist(userId, name) {
+    if (!store.playlists || !store.playlists[userId]) return false;
+    const key = String(name).trim().toLowerCase();
+    const pl = store.playlists[userId][key];
+    if (!pl) return false;
+    pl.tracks = [];
+    pl.updated_at = new Date().toISOString();
+    saveDatabase();
+    return true;
   }
 }
 

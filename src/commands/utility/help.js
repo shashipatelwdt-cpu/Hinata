@@ -658,6 +658,30 @@ const HELP_CATEGORIES = {
         perms: 'Everyone'
       },
       {
+        name: '/playlist',
+        syntax: '/playlist <create/add/addcurrent/play/list/view/remove/delete/clear>',
+        desc: '🎵 Spotify-style personal playlists: create, manage, and play your own playlists.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/autoplay',
+        syntax: '/autoplay [mode:<on/off>]',
+        desc: '📻 Smart Spotify/YouTube Radio: automatically queue similar songs matching your taste.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/radio',
+        syntax: '/radio query:<song / artist / genre>',
+        desc: '📻 Launch 24/7 non-stop music radio for any song, artist or mood.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/leave',
+        syntax: '/leave',
+        desc: '👋 Disconnect bot from voice channel and reset player.',
+        perms: 'Everyone'
+      },
+      {
         name: '/musicpanel',
         syntax: '/musicpanel',
         desc: 'Deploy a permanent interactive 24/7 Music Control Panel in the channel.',

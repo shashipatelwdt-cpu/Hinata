@@ -118,7 +118,17 @@ module.exports = {
         const pingType = parts[1] || 'none';
         const roleId = parts[2] || null;
 
-        const targetChannel = interaction.guild.channels.cache.get(channelId) || interaction.channel;
+        const targetChannel = interaction.guild.channels.cache.get(channelId) || await interaction.guild.channels.fetch(channelId).catch(() => null) || interaction.channel;
+
+        // Verify Bot Permissions in Target Channel
+        const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe().catch(() => null);
+        const channelPerms = targetChannel?.permissionsFor ? targetChannel.permissionsFor(botMember) : null;
+        if (channelPerms && (!channelPerms.has(PermissionFlagsBits.ViewChannel) || !channelPerms.has(PermissionFlagsBits.SendMessages) || !channelPerms.has(PermissionFlagsBits.EmbedLinks))) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Missing Permissions', `I don't have permissions to post embeds in <#${targetChannel.id}>!`)],
+            ephemeral: true
+          });
+        }
 
         const title = interaction.fields.getTextInputValue('announce_title') || '📢 Server Announcement';
         const content = interaction.fields.getTextInputValue('announce_content');
@@ -966,6 +976,133 @@ module.exports = {
     // 5. BUTTON CLICKS
     if (interaction.isButton()) {
       const customId = interaction.customId;
+
+      // ─── USER PLAYLIST BUTTONS ──────────────────────────────────
+      if (customId.startsWith('pl_')) {
+        const userId = interaction.user.id;
+
+        if (customId.startsWith('pl_play_')) {
+          const plName = customId.replace('pl_play_', '');
+          const member = interaction.member;
+          const voiceChannel = member?.voice?.channel;
+
+          if (!voiceChannel) {
+            return interaction.reply({
+              embeds: [EmbedUtils.error('Voice Channel Required', 'You must be in a voice channel to play your playlist!')],
+              ephemeral: true
+            });
+          }
+
+          const pl = DatabaseManager.getPlaylist(userId, plName);
+          if (!pl || !Array.isArray(pl.tracks) || pl.tracks.length === 0) {
+            return interaction.reply({
+              embeds: [EmbedUtils.warning('Empty Playlist', `Your playlist **${plName}** is empty or does not exist!`)],
+              ephemeral: true
+            });
+          }
+
+          await interaction.deferReply();
+          const queue = MusicManager.createQueue(interaction.guild, voiceChannel, interaction.channel);
+
+          for (const t of pl.tracks) {
+            queue.songs.push({
+              title: t.title,
+              url: t.url,
+              duration: t.duration,
+              durationSec: t.durationSec,
+              thumbnail: t.thumbnail,
+              author: t.author,
+              requester: interaction.user,
+              source: 'user_playlist'
+            });
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(`▶️ Playing Playlist • ${pl.name}`)
+            .setDescription(`Enqueued **${pl.tracks.length} songs** into the music queue!`)
+            .setColor(config.embedColors?.primary || '#5865F2')
+            .setFooter({ text: `${pl.name} • Hinata Playlists` });
+
+          await interaction.editReply({ embeds: [embed] });
+
+          if (!queue.isPlaying) {
+            queue.playNext();
+          }
+          return;
+        }
+
+        if (customId.startsWith('pl_shuffle_')) {
+          const plName = customId.replace('pl_shuffle_', '');
+          const member = interaction.member;
+          const voiceChannel = member?.voice?.channel;
+
+          if (!voiceChannel) {
+            return interaction.reply({
+              embeds: [EmbedUtils.error('Voice Channel Required', 'You must be in a voice channel to play your playlist!')],
+              ephemeral: true
+            });
+          }
+
+          const pl = DatabaseManager.getPlaylist(userId, plName);
+          if (!pl || !Array.isArray(pl.tracks) || pl.tracks.length === 0) {
+            return interaction.reply({
+              embeds: [EmbedUtils.warning('Empty Playlist', `Your playlist **${plName}** is empty or does not exist!`)],
+              ephemeral: true
+            });
+          }
+
+          await interaction.deferReply();
+          const queue = MusicManager.createQueue(interaction.guild, voiceChannel, interaction.channel);
+
+          const shuffled = [...pl.tracks];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+
+          for (const t of shuffled) {
+            queue.songs.push({
+              title: t.title,
+              url: t.url,
+              duration: t.duration,
+              durationSec: t.durationSec,
+              thumbnail: t.thumbnail,
+              author: t.author,
+              requester: interaction.user,
+              source: 'user_playlist'
+            });
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(`🔀 Shuffled Playlist • ${pl.name}`)
+            .setDescription(`Shuffled and enqueued **${shuffled.length} songs** into the music queue!`)
+            .setColor(config.embedColors?.primary || '#5865F2')
+            .setFooter({ text: `${pl.name} • Hinata Playlists` });
+
+          await interaction.editReply({ embeds: [embed] });
+
+          if (!queue.isPlaying) {
+            queue.playNext();
+          }
+          return;
+        }
+
+        if (customId.startsWith('pl_delete_')) {
+          const plName = customId.replace('pl_delete_', '');
+          const success = DatabaseManager.deletePlaylist(userId, plName);
+          if (success) {
+            return interaction.update({
+              embeds: [EmbedUtils.success('Playlist Deleted', `🗑️ Successfully deleted playlist **${plName}**!`)],
+              components: []
+            });
+          } else {
+            return interaction.reply({
+              embeds: [EmbedUtils.error('Delete Failed', `Could not delete playlist **${plName}**.`)],
+              ephemeral: true
+            });
+          }
+        }
+      }
 
       // ─── MUSIC CONTROLLER BUTTONS ──────────────────────────────
       if (customId.startsWith('music_')) {

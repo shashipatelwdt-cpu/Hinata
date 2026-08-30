@@ -737,16 +737,354 @@ class PrefixCommandHandler {
       }
 
       // ==========================================
+      // ==========================================
+      // SPOTIFY-STYLE USER PLAYLIST COMMANDS
+      // ==========================================
+      case 'playlist':
+      case 'pl': {
+        const plAction = (args[0] || '').toLowerCase();
+        const userId = message.author.id;
+
+        if (!plAction || plAction === 'help') {
+          const plHelp = new EmbedBuilder()
+            .setTitle('🎵 Personal Spotify-Style Playlists')
+            .setDescription(
+              `Create and listen to your own custom personal playlists:\n\n` +
+              `• \`h pl create <name> [description]\` — Create a new playlist\n` +
+              `• \`h pl add <name> <song / URL>\` — Add song to playlist\n` +
+              `• \`h pl addcurrent <name>\` — Save current playing song to playlist\n` +
+              `• \`h pl play <name> [shuffle]\` — Play your playlist in voice\n` +
+              `• \`h pl list\` — View all your playlists\n` +
+              `• \`h pl view <name> [page]\` — View songs in playlist\n` +
+              `• \`h pl remove <name> <track#>\` — Remove a song by number\n` +
+              `• \`h pl delete <name>\` — Delete playlist\n` +
+              `• \`h pl clear <name>\` — Clear all tracks\n\n` +
+              `*You can also use Slash Command: \`/playlist\`*`
+            )
+            .setColor(config.embedColors?.primary || '#5865F2')
+            .setFooter({ text: 'Hinata Music • Spotify Playlists' });
+          return message.reply({ embeds: [plHelp] });
+        }
+
+        // CREATE
+        if (plAction === 'create' || plAction === 'new' || plAction === 'make') {
+          const plName = args[1];
+          if (!plName) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Missing Name', 'Please specify a name for your playlist!\n*Usage:* `h pl create <name> [description]`')]
+            });
+          }
+          const plDesc = args.slice(2).join(' ').trim();
+          const res = DatabaseManager.createPlaylist(userId, plName, plDesc);
+          if (!res.success) {
+            return message.reply({ embeds: [EmbedUtils.error('Creation Failed', res.message)] });
+          }
+          return message.reply({
+            embeds: [
+              EmbedUtils.success('Playlist Created! ✨', `Successfully created **${res.playlist.name}**!\nAdd tracks with \`h pl add ${res.playlist.name} <song name>\``)
+            ]
+          });
+        }
+
+        // ADD
+        if (plAction === 'add') {
+          const plName = args[1];
+          const songQuery = args.slice(2).join(' ').trim();
+          if (!plName || !songQuery) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Invalid Syntax', 'Usage: `h pl add <playlist_name> <song title or URL>`')]
+            });
+          }
+
+          const pl = DatabaseManager.getPlaylist(userId, plName);
+          if (!pl) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Playlist Not Found', `You do not have a playlist named **${plName}**.\nCreate one with \`h pl create ${plName}\``)]
+            });
+          }
+
+          const loading = await message.reply({ embeds: [EmbedUtils.info('Searching...', `🔍 Searching for **${songQuery}**...`)] });
+          const tracks = await MusicManager.search(songQuery, message.author);
+          if (!tracks || tracks.length === 0) {
+            return loading.edit({ embeds: [EmbedUtils.error('Not Found', `Could not find any song matching **${songQuery}**.`)] });
+          }
+
+          const toAdd = tracks[0];
+          const res = DatabaseManager.addTrackToPlaylist(userId, plName, toAdd);
+          if (!res.success) {
+            return loading.edit({ embeds: [EmbedUtils.error('Failed to Add', res.message)] });
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle('➕ Added to Playlist')
+            .setDescription(`Added **[${toAdd.title}](${toAdd.url})** to **${pl.name}**!\n• **Duration:** \`${toAdd.duration}\`\n• **Total Songs:** \`${res.totalTracks}\``)
+            .setColor(config.embedColors?.success || '#57F287');
+          if (toAdd.thumbnail) embed.setThumbnail(toAdd.thumbnail);
+
+          return loading.edit({ embeds: [embed] });
+        }
+
+        // ADDCURRENT
+        if (plAction === 'addcurrent' || plAction === 'save') {
+          const plName = args[1];
+          if (!plName) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Missing Name', 'Usage: `h pl addcurrent <playlist_name>`')]
+            });
+          }
+          const pl = DatabaseManager.getPlaylist(userId, plName);
+          if (!pl) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Playlist Not Found', `You do not have a playlist named **${plName}**.`)]
+            });
+          }
+
+          const queue = MusicManager.getQueue(message.guild.id);
+          if (!queue || !queue.currentSong) {
+            return message.reply({
+              embeds: [EmbedUtils.warning('Nothing Playing', 'No song is currently playing in this server!')]
+            });
+          }
+
+          const res = DatabaseManager.addTrackToPlaylist(userId, plName, queue.currentSong);
+          if (!res.success) {
+            return message.reply({ embeds: [EmbedUtils.error('Failed to Add', res.message)] });
+          }
+
+          return message.reply({
+            embeds: [
+              EmbedUtils.success('Song Saved!', `💾 Saved **[${queue.currentSong.title}](${queue.currentSong.url})** to **${pl.name}** (\`${res.totalTracks} tracks\`)!`)
+            ]
+          });
+        }
+
+        // PLAY
+        if (plAction === 'play' || plAction === 'p' || plAction === 'load') {
+          const plName = args[1];
+          if (!plName) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Missing Name', 'Usage: `h pl play <playlist_name> [shuffle]`')]
+            });
+          }
+
+          const voiceChannel = message.member?.voice?.channel;
+          if (!voiceChannel) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Voice Channel Required', 'You must join a voice channel to play your playlist!')]
+            });
+          }
+
+          const pl = DatabaseManager.getPlaylist(userId, plName);
+          if (!pl || !Array.isArray(pl.tracks) || pl.tracks.length === 0) {
+            return message.reply({
+              embeds: [EmbedUtils.warning('Empty Playlist', `Playlist **${plName}** is empty or does not exist!`)]
+            });
+          }
+
+          const shuffle = (args[2] || '').toLowerCase() === 'shuffle' || (args[2] || '').toLowerCase() === 'sh';
+          const queue = MusicManager.createQueue(message.guild, voiceChannel, message.channel);
+
+          const tracksToQueue = pl.tracks.map(t => ({
+            title: t.title,
+            url: t.url,
+            duration: t.duration,
+            durationSec: t.durationSec,
+            thumbnail: t.thumbnail,
+            author: t.author,
+            requester: message.author,
+            source: 'user_playlist'
+          }));
+
+          if (shuffle) {
+            for (let i = tracksToQueue.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [tracksToQueue[i], tracksToQueue[j]] = [tracksToQueue[j], tracksToQueue[i]];
+            }
+          }
+
+          for (const t of tracksToQueue) {
+            queue.songs.push(t);
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(`▶️ Playing Playlist • ${pl.name}`)
+            .setDescription(`Enqueued **${tracksToQueue.length} songs** into the music queue!${shuffle ? ' *(Shuffled)*' : ''}`)
+            .setColor(config.embedColors?.primary || '#5865F2')
+            .setFooter({ text: `${pl.name} • Hinata Spotify-Style Queue` });
+
+          await message.reply({ embeds: [embed] });
+
+          if (!queue.isPlaying) {
+            queue.playNext();
+          }
+          return;
+        }
+
+        // LIST
+        if (plAction === 'list' || plAction === 'all') {
+          const userPlaylists = DatabaseManager.getUserPlaylists(userId);
+          if (!userPlaylists || userPlaylists.length === 0) {
+            return message.reply({
+              embeds: [
+                EmbedUtils.info('No Playlists', 'You haven\'t created any playlists yet!\nCreate one using `h pl create <name>`')
+              ]
+            });
+          }
+
+          const embed = new EmbedBuilder()
+            .setTitle(`🎵 ${message.author.username}'s Spotify Playlists`)
+            .setColor(config.embedColors?.primary || '#5865F2');
+
+          let desc = '';
+          userPlaylists.forEach((pl, i) => {
+            const count = pl.tracks?.length || 0;
+            desc += `**${i + 1}. 📁 [${pl.name}]** • \`${count} tracks\`\n`;
+            if (pl.description) desc += `> *${pl.description}*\n`;
+            desc += '\n';
+          });
+          embed.setDescription(desc);
+          return message.reply({ embeds: [embed] });
+        }
+
+        // VIEW
+        if (plAction === 'view' || plAction === 'show') {
+          const plName = args[1];
+          if (!plName) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Missing Name', 'Usage: `h pl view <playlist_name> [page]`')]
+            });
+          }
+
+          const pl = DatabaseManager.getPlaylist(userId, plName);
+          if (!pl) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Not Found', `Playlist **${plName}** does not exist!`)]
+            });
+          }
+
+          const tracks = pl.tracks || [];
+          const page = parseInt(args[2], 10) || 1;
+          const pageSize = 10;
+          const totalPages = Math.max(1, Math.ceil(tracks.length / pageSize));
+          const currentPage = Math.min(Math.max(1, page), totalPages);
+          const startIdx = (currentPage - 1) * pageSize;
+          const pageTracks = tracks.slice(startIdx, startIdx + pageSize);
+
+          const embed = new EmbedBuilder()
+            .setTitle(`📁 Playlist: ${pl.name}`)
+            .setDescription(
+              `${pl.description ? `*${pl.description}*\n\n` : ''}` +
+              `• **Total Tracks:** \`${tracks.length} songs\`\n\n` +
+              `**Track List (Page ${currentPage}/${totalPages}):**\n` +
+              (pageTracks.length > 0
+                ? pageTracks.map((t, idx) => `\`${startIdx + idx + 1}.\` **[${t.title.slice(0, 55)}](${t.url})** (\`${t.duration || 'Unknown'}\`)`).join('\n')
+                : '*No tracks added yet.*')
+            )
+            .setColor(config.embedColors?.primary || '#5865F2')
+            .setFooter({ text: `Page ${currentPage}/${totalPages} • Play with: h pl play ${pl.name}` });
+
+          return message.reply({ embeds: [embed] });
+        }
+
+        // REMOVE
+        if (plAction === 'remove' || plAction === 'delete-song') {
+          const plName = args[1];
+          const trackNum = parseInt(args[2], 10);
+          if (!plName || isNaN(trackNum)) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Invalid Syntax', 'Usage: `h pl remove <playlist_name> <track_number>`')]
+            });
+          }
+
+          const res = DatabaseManager.removeTrackFromPlaylist(userId, plName, trackNum);
+          if (!res.success) {
+            return message.reply({ embeds: [EmbedUtils.error('Remove Failed', res.message)] });
+          }
+
+          return message.reply({
+            embeds: [
+              EmbedUtils.success('Track Removed', `Removed **${res.removedTrack.title}** from **${plName}** (\`${res.totalTracks} songs remaining\`)`)
+            ]
+          });
+        }
+
+        // DELETE
+        if (plAction === 'delete' || plAction === 'remove-playlist') {
+          const plName = args[1];
+          if (!plName) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Missing Name', 'Usage: `h pl delete <playlist_name>`')]
+            });
+          }
+
+          const success = DatabaseManager.deletePlaylist(userId, plName);
+          if (!success) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Delete Failed', `Could not find a playlist named **${plName}**.`)]
+            });
+          }
+
+          return message.reply({
+            embeds: [EmbedUtils.success('Playlist Deleted', `🗑️ Successfully deleted playlist **${plName}**.`)]
+          });
+        }
+
+        // CLEAR
+        if (plAction === 'clear') {
+          const plName = args[1];
+          if (!plName) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Missing Name', 'Usage: `h pl clear <playlist_name>`')]
+            });
+          }
+
+          const success = DatabaseManager.clearPlaylist(userId, plName);
+          if (!success) {
+            return message.reply({
+              embeds: [EmbedUtils.error('Clear Failed', `Could not find a playlist named **${plName}**.`)]
+            });
+          }
+
+          return message.reply({
+            embeds: [EmbedUtils.success('Playlist Cleared', `🧹 Cleared all tracks from playlist **${plName}**.`)]
+          });
+        }
+
+        return message.reply({
+          embeds: [EmbedUtils.error('Unknown Action', `Invalid sub-command \`${plAction}\`. Type \`h pl help\` for usage.`)]
+        });
+      }
+
+      // ==========================================
       // GHOSTPING COMMAND
       // ==========================================
       case 'ghostping':
       case 'gp':
       case 'ghost': {
-        const result = SnipeManager.getGhostPing(message.channel.id, 0);
+        let targetChannel = message.mentions.channels.first();
+        let targetIndex = 0;
+
+        for (const arg of args) {
+          const num = parseInt(arg, 10);
+          if (!isNaN(num) && num >= 1 && num <= 15) {
+            targetIndex = num - 1;
+          } else if (!targetChannel) {
+            const ch = message.guild.channels.cache.get(arg.replace(/[<#>]/g, '')) ||
+              message.guild.channels.cache.find(c => c.name.toLowerCase() === arg.toLowerCase());
+            if (ch) targetChannel = ch;
+          }
+        }
+
+        if (!targetChannel) targetChannel = message.channel;
+
+        const result = SnipeManager.getGhostPing(targetChannel.id, targetIndex);
         if (!result) {
           return message.reply({
             embeds: [
-              EmbedUtils.info('No Ghost Pings', `👻 No ghost pings recorded in <#${message.channel.id}>.`)
+              EmbedUtils.info(
+                'No Ghost Pings Found',
+                `👻 No ghost-pings recorded in <#${targetChannel.id}>${targetIndex > 0 ? ` at index ${targetIndex + 1}` : ''}.\n\n*Ghost pings are automatically captured when a message mentioning someone is deleted or edited.*`
+              )
             ]
           });
         }
@@ -755,7 +1093,7 @@ class PrefixCommandHandler {
         const userMentions = (record.ghostPing?.users || []).map(u => `<@${u.id}> (\`${u.tag || u.username}\`)`);
         const roleMentions = (record.ghostPing?.roles || []).map(r => `<@&${r.id}> (\`${r.name}\`)`);
         const everyoneMention = record.ghostPing?.hasEveryone ? ['`@everyone` / `@here`'] : [];
-        const allMentionTargets = [...userMentions, ...roleMentions, ...everyoneMention].join('\n• ') || 'Unknown';
+        const allMentionTargets = [...userMentions, ...roleMentions, ...everyoneMention].join('\n• ') || 'Unknown Mention';
 
         const isEdited = record.type === 'edited';
         const typeLabel = isEdited ? '✏️ Edited Message' : '🗑️ Deleted Message';
@@ -768,14 +1106,26 @@ class PrefixCommandHandler {
             iconURL: record.author.avatar || message.guild.iconURL({ dynamic: true })
           })
           .addFields(
-            { name: '👤 Ghost Pinger', value: `<@${record.author.id}>`, inline: true },
-            { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
-            { name: '⏰ Timing', value: `Sent <t:${Math.floor(record.sentAt / 1000)}:R>`, inline: true },
-            { name: '🎯 Mentioned Targets', value: `• ${allMentionTargets}`, inline: false },
-            { name: '📝 Message Content', value: record.content ? `>>> ${record.content.slice(0, 1000)}` : '*[No Text]*', inline: false }
+            { name: '👤 Ghost Pinger', value: `<@${record.author.id}> (\`${record.author.id}\`)`, inline: true },
+            { name: '💬 Channel', value: `<#${targetChannel.id}>`, inline: true },
+            { name: '⏰ Timing', value: `**Sent:** <t:${Math.floor(record.sentAt / 1000)}:R>\n**${isEdited ? 'Edited' : 'Deleted'}:** <t:${Math.floor(record.eventAt / 1000)}:R>`, inline: true },
+            { name: '🎯 Mentioned Targets (Kisko Ping Kiya):', value: `• ${allMentionTargets}`, inline: false }
           )
-          .setFooter({ text: `Ghost Ping ${index} of ${total} • Type /ghostping for full details` })
+          .setFooter({ text: `Ghost Ping ${index} of ${total} • Server: ${message.guild.name}` })
           .setTimestamp(record.eventAt);
+
+        if (isEdited) {
+          embed.addFields(
+            { name: '⬅️ Original Content (Kya Bheja Tha):', value: record.content ? `>>> ${record.content.slice(0, 1000)}` : '*[No Text]*', inline: false },
+            { name: '➡️ Edited Content (Badalkar Kya Kiya):', value: record.newContent ? `>>> ${record.newContent.slice(0, 1000)}` : '*[No Text]*', inline: false }
+          );
+        } else {
+          embed.addFields({
+            name: '📝 Message Content (Kya Bheja Tha):',
+            value: record.content ? `>>> ${record.content.slice(0, 1000)}` : '*[No Text / Only Attachments]*',
+            inline: false
+          });
+        }
 
         if (record.attachments && record.attachments.length > 0) {
           const firstImage = record.attachments.find(att =>
@@ -869,10 +1219,24 @@ class PrefixCommandHandler {
           });
         }
 
-        const targetChannel = message.mentions.channels.first() || message.channel;
-        const msgParts = args.filter(a => !a.startsWith('<#'));
-        const announceText = msgParts.join(' ').trim();
+        let targetChannel = message.mentions.channels.first();
+        let msgWords = [...args];
 
+        // Check if first argument was a channel mention, ID or name
+        if (targetChannel && msgWords[0] && (msgWords[0].includes(targetChannel.id) || msgWords[0] === `<#${targetChannel.id}>`)) {
+          msgWords.shift();
+        } else if (!targetChannel && msgWords.length > 0) {
+          const potentialChannel = message.guild.channels.cache.get(msgWords[0].replace(/[<#>]/g, '')) ||
+            message.guild.channels.cache.find(c => c.name.toLowerCase() === msgWords[0].toLowerCase());
+          if (potentialChannel && (potentialChannel.type === ChannelType.GuildText || potentialChannel.type === ChannelType.GuildAnnouncement || potentialChannel.isTextBased())) {
+            targetChannel = potentialChannel;
+            msgWords.shift();
+          }
+        }
+
+        if (!targetChannel) targetChannel = message.channel;
+
+        const announceText = msgWords.join(' ').trim();
         if (!announceText) {
           return message.reply({
             embeds: [EmbedUtils.error('Missing Message', 'Please provide the announcement message content!')]
@@ -885,6 +1249,9 @@ class PrefixCommandHandler {
           pingContent = '@everyone';
         } else if (announceText.includes('@here')) {
           pingContent = '@here';
+        } else if (message.mentions.roles.size > 0) {
+          const r = message.mentions.roles.first();
+          pingContent = `<@&${r.id}>`;
         }
 
         const embed = new EmbedBuilder()
@@ -893,7 +1260,7 @@ class PrefixCommandHandler {
           .setColor(config.embedColors?.primary || '#5865F2')
           .setAuthor({ name: message.guild.name, iconURL: message.guild.iconURL({ dynamic: true }) })
           .setThumbnail(message.guild.iconURL({ dynamic: true, size: 256 }))
-          .setFooter({ text: `Announced by ${message.author.tag}`, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
+          .setFooter({ text: `${message.guild.name} • Announced by ${message.author.tag}`, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
           .setTimestamp();
 
         try {

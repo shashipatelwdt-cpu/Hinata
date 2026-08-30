@@ -5,6 +5,7 @@ const play = require('play-dl');
 const ytSearch = require('yt-search');
 const GuildQueue = require('./GuildQueue');
 const { getYtDlpPath } = require('./ytUtils');
+const { DatabaseManager } = require('../../database/db');
 const config = require('../../config.json');
 
 let InnertubeClass = null;
@@ -382,6 +383,28 @@ class MusicManager {
     const cleanQuery = query.trim();
 
     try {
+      // 0. Custom User Playlist Reference (e.g. "playlist:myfavs" or "pl:chill" or direct playlist name)
+      if (requester?.id) {
+        const isExplicitPl = /^(playlist|pl):\s*/i.test(cleanQuery);
+        const plName = cleanQuery.replace(/^(playlist|pl):\s*/i, '').trim();
+        const userPl = DatabaseManager.getPlaylist(requester.id, plName);
+        if (userPl && Array.isArray(userPl.tracks) && userPl.tracks.length > 0) {
+          return userPl.tracks.map(t => ({
+            title: t.title,
+            url: t.url,
+            duration: t.duration || 'Unknown',
+            durationSec: t.durationSec || 0,
+            thumbnail: t.thumbnail || `https://i.ytimg.com/vi/${extractYouTubeVideoId(t.url) || 'default'}/hqdefault.jpg`,
+            author: t.author || userPl.name,
+            requester,
+            source: 'user_playlist'
+          }));
+        }
+        if (isExplicitPl && (!userPl || !userPl.tracks.length)) {
+          return [];
+        }
+      }
+
       // 1. Spotify URL Handling (Track, Album, Playlist)
       if (cleanQuery.includes('spotify.com')) {
         try {
@@ -513,8 +536,8 @@ class MusicManager {
         }];
       }
 
-      // 4. SoundCloud Track Link
-      if (cleanQuery.includes('soundcloud.com')) {
+      // 4. SoundCloud Track Link (Direct Web URL)
+      if (cleanQuery.includes('soundcloud.com') && !cleanQuery.includes('api.soundcloud.com')) {
         try {
           await this.initSoundCloud();
           const scInfo = await play.soundcloud(cleanQuery);
@@ -535,36 +558,16 @@ class MusicManager {
         }
       }
 
-      // 5. Keyword search: Try SoundCloud first for 100% reliable cloud streaming
-      try {
-        await this.initSoundCloud();
-        const scResults = await play.search(cleanQuery, { source: { soundcloud: 'tracks' }, limit: 5 });
-        if (scResults && scResults.length > 0) {
-          return scResults.slice(0, 1).map(s => ({
-            title: s.name || 'SoundCloud Track',
-            url: s.url,
-            duration: s.durationInSec ? `${Math.floor(s.durationInSec / 60)}:${(s.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
-            durationSec: s.durationInSec || 0,
-            thumbnail: s.thumbnail,
-            author: s.user?.name || 'SoundCloud Artist',
-            requester,
-            source: 'soundcloud'
-          }));
-        }
-      } catch (scErr) {
-        console.warn('[SC KEYWORD SEARCH ERROR]:', scErr.message);
-      }
-
-      // 6. YouTube search fallback
+      // 5. Keyword Search: Fast & Reliable YouTube Search
       const searchResults = await ytSearch(cleanQuery);
       if (searchResults && searchResults.videos && searchResults.videos.length > 0) {
         const first = searchResults.videos[0];
         return [{
           title: first.title,
           url: first.url,
-          duration: first.timestamp,
-          durationSec: first.seconds,
-          thumbnail: first.thumbnail,
+          duration: first.timestamp || 'Unknown',
+          durationSec: first.seconds || 0,
+          thumbnail: first.thumbnail || first.image,
           author: first.author?.name || 'YouTube',
           requester,
           source: 'youtube'
@@ -579,9 +582,9 @@ class MusicManager {
           return [{
             title: v.title,
             url: v.url,
-            duration: v.timestamp,
-            durationSec: v.seconds,
-            thumbnail: v.thumbnail,
+            duration: v.timestamp || 'Unknown',
+            durationSec: v.seconds || 0,
+            thumbnail: v.thumbnail || v.image,
             author: v.author?.name || 'YouTube',
             requester,
             source: 'youtube'

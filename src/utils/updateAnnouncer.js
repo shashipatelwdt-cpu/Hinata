@@ -48,12 +48,17 @@ function getLatestCommitInfo() {
 }
 
 class UpdateAnnouncer {
+  static getTargetChannelId() {
+    return DatabaseManager.getMeta('update_announcement_channel') || process.env.UPDATE_CHANNEL_ID || config.updateAnnouncementChannelId || '1543499614139711540';
+  }
+
   /**
    * Automatically check if a new commit/release was deployed and announce it in the update channel
    * @param {import('discord.js').Client} client 
    */
   static async checkAndSendUpdateAnnouncement(client) {
-    if (!TARGET_CHANNEL_ID) return;
+    const channelId = this.getTargetChannelId();
+    if (!channelId) return;
 
     try {
       const commitInfo = getLatestCommitInfo();
@@ -67,9 +72,9 @@ class UpdateAnnouncer {
       }
 
       // Fetch the target update channel
-      const channel = await client.channels.fetch(TARGET_CHANNEL_ID).catch(() => null);
+      const channel = await client.channels.fetch(channelId).catch(() => null);
       if (!channel || !channel.isTextBased()) {
-        console.warn(`[UPDATE ANNOUNCER] Channel ${TARGET_CHANNEL_ID} not found or inaccessible.`);
+        console.warn(`[UPDATE ANNOUNCER] Channel ${channelId} not found or inaccessible.`);
         return;
       }
 
@@ -79,8 +84,10 @@ class UpdateAnnouncer {
         .setDescription(
           `**${config.botName || 'Hinata'}** has been successfully updated with the latest improvements!\n\n` +
           `• ⚡ **Fix:** Instant song playback & accurate song streaming\n` +
-          `• 💤 **Fix:** Automatic VC leave when empty (Autoplay blocked when alone)\n` +
-          `• 👋 **New:** \`/leave\` command\n\n` +
+          `• 🎵 **New:** Spotify-Style Personal Custom Playlists (\`/playlist\` & \`h pl\`)\n` +
+          `• 👻 **Feature:** Ghost Ping tracking & command (\`/ghostping\` & \`h ghostping\`)\n` +
+          `• 📢 **Fix:** Announcement channel broadcasting & role/@everyone pings\n` +
+          `• 💤 **Fix:** Automatic VC leave when empty\n\n` +
           `**Release:** \`${commitInfo.hash}\` • <t:${Math.floor(Date.now() / 1000)}:R>`
         )
         .setColor(config.embedColors?.primary || '#5865F2')
@@ -97,7 +104,7 @@ class UpdateAnnouncer {
 
       // Mark this commit as announced
       DatabaseManager.setMeta('last_announced_commit', commitInfo.hash);
-      console.log(`📢 Update announcement for [${commitInfo.hash}] successfully sent to channel ${TARGET_CHANNEL_ID}`);
+      console.log(`📢 Update announcement for [${commitInfo.hash}] successfully sent to channel ${channelId}`);
     } catch (error) {
       console.error('[UPDATE ANNOUNCER ERROR]', error);
     }
@@ -109,9 +116,11 @@ class UpdateAnnouncer {
    * @param {string} title 
    * @param {string} description 
    * @param {Array<string>} changes 
+   * @param {string} customChannelId
    */
-  static async sendManualAnnouncement(client, title, description, changes = []) {
-    const channel = await client.channels.fetch(TARGET_CHANNEL_ID).catch(() => null);
+  static async sendManualAnnouncement(client, title, description, changes = [], customChannelId = null) {
+    const channelId = customChannelId || this.getTargetChannelId();
+    const channel = await client.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.isTextBased()) return false;
 
     const embed = new EmbedBuilder()
