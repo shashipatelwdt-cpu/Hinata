@@ -80,6 +80,7 @@ class GuildQueue {
     this.isPlaying = false;
     this.isPaused = false;
     this.idleTimer = null;
+    this.emptyTimeout = null;
     this.progressInterval = null;
     this.nowPlayingMessage = null;
 
@@ -87,6 +88,14 @@ class GuildQueue {
       this.connection.subscribe(this.player);
     }
     this.setupListeners();
+
+    // Check if voice channel is initially empty
+    if (this.voiceChannel && this.voiceChannel.members) {
+      const nonBots = this.voiceChannel.members.filter(m => !m.user.bot);
+      if (nonBots.size === 0) {
+        this.startEmptyChannelTimer();
+      }
+    }
   }
 
   setupListeners() {
@@ -610,7 +619,47 @@ class GuildQueue {
     return this.autoplay;
   }
 
+  startEmptyChannelTimer(timeoutMs = 60000) {
+    if (this.emptyTimeout) return;
+
+    this.emptyTimeout = setTimeout(() => {
+      const currentChannel = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
+      if (!currentChannel) {
+        this.destroy();
+        return;
+      }
+
+      const nonBots = currentChannel.members ? currentChannel.members.filter(m => !m.user.bot) : [];
+      const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
+
+      if (humanCount === 0) {
+        if (this.textChannel) {
+          this.textChannel.send({
+            embeds: [
+              new EmbedBuilder()
+                .setTitle('👋 Voice Channel Inactive')
+                .setDescription(`Disconnected from **${currentChannel.name || 'Voice Channel'}** because everyone left the channel.`)
+                .setColor(config.embedColors?.neutral || '#2B2D31')
+                .setFooter({ text: `${config.botName || 'Hinata'} • Auto Inactive Leave` })
+            ]
+          }).then(m => setTimeout(() => m.delete().catch(() => null), 15000)).catch(() => null);
+        }
+        this.destroy();
+      } else {
+        this.emptyTimeout = null;
+      }
+    }, timeoutMs);
+  }
+
+  cancelEmptyChannelTimer() {
+    if (this.emptyTimeout) {
+      clearTimeout(this.emptyTimeout);
+      this.emptyTimeout = null;
+    }
+  }
+
   destroy() {
+    this.cancelEmptyChannelTimer();
     this.stopLiveTimer();
     if (this.currentProcess) {
       try { this.currentProcess.kill(); } catch {}
