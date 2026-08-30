@@ -1,6 +1,8 @@
 name: Keep Alive Hinata Bot
+
 on:
   schedule:
+    # Runs every 10 minutes to prevent Render free instance from spinning down
     - cron: '*/10 * * * *'
   workflow_dispatch:
 
@@ -8,5 +10,8 @@ jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Render
-        run: curl -s https://hinata-o516.onrender.com
+      - name: Ping Render Web Service
+        run: |
+          echo "Pinging Render bot service..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://hinata-o5l6.onrender.com)
+          echo "Received HTTP Status: $RESPONSE"

@@ -1,10 +1,24 @@
 const { joinVoiceChannel } = require('@discordjs/voice');
 const { spawn } = require('child_process');
-const path = require('path');
 const play = require('play-dl');
 const ytSearch = require('yt-search');
 const GuildQueue = require('./GuildQueue');
 const { getYtDlpPath } = require('./ytUtils');
+
+let InnertubeClass = null;
+let UniversalCacheClass = null;
+try {
+  const youtubei = require('youtubei.js');
+  InnertubeClass = youtubei.Innertube;
+  UniversalCacheClass = youtubei.UniversalCache;
+} catch (e) {
+  try {
+    const youtubeiPath = require.resolve('youtubei.js');
+    const youtubei = require(youtubeiPath);
+    InnertubeClass = youtubei.Innertube;
+    UniversalCacheClass = youtubei.UniversalCache;
+  } catch {}
+}
 
 function extractYouTubeVideoId(url) {
   if (!url || typeof url !== 'string') return null;
@@ -25,10 +39,55 @@ function formatDurationSec(s) {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+function cleanSongTitle(title) {
+  if (!title || typeof title !== 'string') return '';
+  return title
+    .replace(/\(Official.*?\)/gi, '')
+    .replace(/\[Official.*?\]/gi, '')
+    .replace(/\(Audio.*?\)/gi, '')
+    .replace(/\[Audio.*?\]/gi, '')
+    .replace(/\(Lyric.*?\)/gi, '')
+    .replace(/\[Lyric.*?\]/gi, '')
+    .replace(/\(4K.*?\)/gi, '')
+    .replace(/\[4K.*?\]/gi, '')
+    .replace(/\|.*$/g, '')
+    .replace(/ft\..*$/gi, '')
+    .replace(/feat\..*$/gi, '')
+    .trim();
+}
+
 class MusicManager {
   constructor() {
     this.queues = new Map();
+    this.innertube = null;
+    this.innertubePromise = null;
     this.initSoundCloud();
+    this.getInnertube().catch(() => null);
+  }
+
+  async getInnertube() {
+    if (this.innertube) return this.innertube;
+    if (this.innertubePromise) return this.innertubePromise;
+
+    if (!InnertubeClass) return null;
+
+    this.innertubePromise = (async () => {
+      try {
+        const cache = UniversalCacheClass ? new UniversalCacheClass(false) : undefined;
+        this.innertube = await InnertubeClass.create({
+          cache,
+          generate_session_locally: true
+        });
+        return this.innertube;
+      } catch (err) {
+        console.warn('[INNERTUBE INIT WARN]:', err.message);
+        return null;
+      } finally {
+        this.innertubePromise = null;
+      }
+    })();
+
+    return this.innertubePromise;
   }
 
   async initSoundCloud() {
@@ -83,7 +142,8 @@ class MusicManager {
   }
 
   /**
-   * Get smart recommendation / next song matching the current song's taste and genre
+   * Get smart recommendation / next song matching the current song's taste and genre (Spotify / YouTube Music Radio Algorithm)
+   * Ensures 0 duplicates by checking against played history and current queue
    * @param {Object} currentSong 
    * @param {Array<string>} playedHistory 
    * @param {Array<string>} queuedUrls 
@@ -94,31 +154,79 @@ class MusicManager {
 
     const videoId = extractYouTubeVideoId(currentSong.url);
     const historySet = new Set((playedHistory || []).map(x => String(x).toLowerCase()));
+    
     if (videoId) historySet.add(videoId.toLowerCase());
-    if (currentSong.title) historySet.add(currentSong.title.toLowerCase());
+    if (currentSong.title) historySet.add(cleanSongTitle(currentSong.title).toLowerCase());
+    if (currentSong.url) historySet.add(currentSong.url.toLowerCase());
+
     for (const qUrl of (queuedUrls || [])) {
       const qId = extractYouTubeVideoId(qUrl);
       if (qId) historySet.add(qId.toLowerCase());
+      if (qUrl) historySet.add(qUrl.toLowerCase());
     }
 
-    // 1. YouTube Mix Radio Algorithm via yt-dlp (RD<videoId>)
+    // 1. YouTube Music Official Radio Engine (Innertube getUpNext - 50 curated tracks like Spotify Radio)
+    if (videoId) {
+      try {
+        const yt = await this.getInnertube();
+        if (yt && yt.music && typeof yt.music.getUpNext === 'function') {
+          const upNext = await yt.music.getUpNext(videoId).catch(() => null);
+          const contents = upNext?.contents || (Array.isArray(upNext) ? upNext : []);
+          
+          if (contents && contents.length > 0) {
+            for (const item of contents) {
+              const vId = item.video_id || item.id;
+              const title = item.title?.text || item.title || item.name;
+              if (!vId || !title) continue;
+
+              const cleanTitle = cleanSongTitle(title).toLowerCase();
+              const durSec = item.duration?.seconds || 0;
+
+              // Filter out songs in played history or currently queued
+              if (
+                !historySet.has(vId.toLowerCase()) &&
+                !historySet.has(cleanTitle) &&
+                !historySet.has(`https://www.youtube.com/watch?v=${vId}`.toLowerCase()) &&
+                (durSec === 0 || (durSec >= 45 && durSec <= 1200))
+              ) {
+                return {
+                  title,
+                  url: `https://www.youtube.com/watch?v=${vId}`,
+                  duration: item.duration?.text || (durSec > 0 ? formatDurationSec(durSec) : 'Unknown'),
+                  durationSec: durSec,
+                  thumbnail: item.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`,
+                  author: item.artists?.[0]?.name || item.author?.name || 'YouTube Music',
+                  requester: { id: 'autoplay', username: 'Smart Autoplay' },
+                  source: 'autoplay'
+                };
+              }
+            }
+          }
+        }
+      } catch (innertubeErr) {
+        console.warn('[AUTOPLAY INNERTUBE ERROR]:', innertubeErr.message);
+      }
+    }
+
+    // 2. YouTube Mix Radio via yt-dlp (RD<videoId> algorithm)
     if (videoId) {
       const ytDlpPath = getYtDlpPath();
       if (ytDlpPath) {
         try {
-          const results = await new Promise((resolve) => {
+          const tracks = await new Promise((resolve) => {
             const p = spawn(ytDlpPath, [
               `https://www.youtube.com/watch?v=${videoId}&list=RD${videoId}`,
               '--flat-playlist',
               '--print', '%(title)s === %(id)s === %(duration)s === %(uploader)s',
-              '--playlist-items', '2:25'
+              '--playlist-items', '2:30',
+              '--no-warnings'
             ]);
 
             let output = '';
             p.stdout.on('data', d => output += d.toString());
             p.on('close', () => {
               const lines = output.split('\n').map(l => l.trim()).filter(Boolean);
-              const tracks = [];
+              const list = [];
               for (const line of lines) {
                 const parts = line.split(' === ');
                 if (parts.length >= 2) {
@@ -126,35 +234,36 @@ class MusicManager {
                   const id = parts[1];
                   const durSec = parseInt(parts[2]) || 0;
                   const uploader = parts[3] || 'YouTube';
+                  const cleanTitle = cleanSongTitle(title).toLowerCase();
 
-                  // Prefer individual tracks (between 50s and 900s) and not in history
                   if (
                     id && id.length === 11 &&
                     !historySet.has(id.toLowerCase()) &&
-                    !historySet.has(title.toLowerCase()) &&
-                    (durSec === 0 || (durSec >= 50 && durSec <= 900))
+                    !historySet.has(cleanTitle) &&
+                    !historySet.has(`https://www.youtube.com/watch?v=${id}`.toLowerCase()) &&
+                    (durSec === 0 || (durSec >= 45 && durSec <= 1200))
                   ) {
-                    tracks.push({
+                    list.push({
                       title,
                       url: `https://www.youtube.com/watch?v=${id}`,
                       duration: durSec > 0 ? formatDurationSec(durSec) : 'Unknown',
                       durationSec: durSec,
                       thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
                       author: uploader,
-                      requester: { id: 'autoplay', username: 'Autoplay Engine' },
+                      requester: { id: 'autoplay', username: 'Smart Autoplay' },
                       source: 'autoplay'
                     });
                   }
                 }
               }
-              resolve(tracks);
+              resolve(list);
             });
             p.on('error', () => resolve([]));
             setTimeout(() => { try { p.kill(); } catch {} resolve([]); }, 6000);
           });
 
-          if (results && results.length > 0) {
-            return results[0];
+          if (tracks && tracks.length > 0) {
+            return tracks[0];
           }
         } catch (e) {
           console.warn('[AUTOPLAY YTDLP ERROR]', e.message);
@@ -162,19 +271,13 @@ class MusicManager {
       }
     }
 
-    // 2. Intelligent Search Fallback with yt-search
+    // 3. Intelligent Search Fallback with yt-search
     try {
-      const cleanTitle = (currentSong.title || '')
-        .replace(/\(Official.*?\)/gi, '')
-        .replace(/\[Official.*?\]/gi, '')
-        .replace(/\|.*$/g, '')
-        .replace(/ft\..*$/gi, '')
-        .trim();
-
+      const cleanTitle = cleanSongTitle(currentSong.title || '');
       const searchQueries = [
         `${currentSong.author || ''} ${cleanTitle} similar songs`.trim(),
-        `${currentSong.author || ''} songs`.trim(),
-        `${cleanTitle} mix`.trim()
+        `${currentSong.author || ''} songs mix`.trim(),
+        `${cleanTitle} radio`.trim()
       ];
 
       for (const q of searchQueries) {
@@ -184,11 +287,13 @@ class MusicManager {
           for (const v of res.videos) {
             const vId = v.videoId;
             const sec = v.seconds || 0;
+            const cleanT = cleanSongTitle(v.title).toLowerCase();
             if (
               vId &&
               !historySet.has(vId.toLowerCase()) &&
-              !historySet.has(v.title.toLowerCase()) &&
-              (sec === 0 || (sec >= 50 && sec <= 900))
+              !historySet.has(cleanT) &&
+              !historySet.has(v.url.toLowerCase()) &&
+              (sec === 0 || (sec >= 45 && sec <= 1200))
             ) {
               return {
                 title: v.title,
@@ -197,7 +302,7 @@ class MusicManager {
                 durationSec: v.seconds || 0,
                 thumbnail: v.thumbnail || v.image,
                 author: v.author?.name || 'YouTube',
-                requester: { id: 'autoplay', username: 'Autoplay Engine' },
+                requester: { id: 'autoplay', username: 'Smart Autoplay' },
                 source: 'autoplay'
               };
             }
@@ -220,7 +325,6 @@ class MusicManager {
       // 1. Spotify URL Handling (Track, Album, Playlist)
       if (cleanQuery.includes('spotify.com')) {
         try {
-          // Public oEmbed resolution (zero config required)
           if (cleanQuery.includes('/track/')) {
             const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(cleanQuery)}`;
             const oembedRes = await fetch(oembedUrl).catch(() => null);
@@ -341,6 +445,7 @@ class MusicManager {
       // 4. SoundCloud Track Link
       if (cleanQuery.includes('soundcloud.com')) {
         try {
+          await this.initSoundCloud();
           const scInfo = await play.soundcloud(cleanQuery);
           if (scInfo) {
             return [{
@@ -401,4 +506,3 @@ class MusicManager {
 // Global Singleton Instance
 const managerInstance = new MusicManager();
 module.exports = managerInstance;
-

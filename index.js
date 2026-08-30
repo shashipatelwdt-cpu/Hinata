@@ -86,21 +86,20 @@ async function registerCommands(token, clientId, guildId) {
     const rest = new REST({ version: '10' }).setToken(token);
     console.log(`🔄 Auto-syncing ${slashCommandsData.length} application (/) commands...`);
 
-    // Global deployment
+    // Global deployment (Standard Discord practice)
     await rest.put(
       Routes.applicationCommands(clientId),
       { body: slashCommandsData }
     );
     console.log(`✅ Deployed ${slashCommandsData.length} global commands.`);
 
-    // Also sync directly to all connected guilds for 0-delay instant updates on client
+    // Clear any legacy guild-specific commands to prevent 2x duplicate command listings in Discord
     for (const g of client.guilds.cache.values()) {
       await rest.put(
         Routes.applicationGuildCommands(clientId, g.id),
-        { body: slashCommandsData }
+        { body: [] }
       ).catch(() => null);
     }
-    console.log(`⚡ Instant-synced slash commands to ${client.guilds.cache.size} guilds.`);
   } catch (error) {
     console.error('[COMMAND SYNC ERROR]', error);
   }

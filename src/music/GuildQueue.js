@@ -4,7 +4,7 @@ const {
   AudioPlayerStatus, 
   VoiceConnectionStatus, 
   entersState, 
-  StreamType,
+  StreamType, 
   NoSubscriberBehavior 
 } = require('@discordjs/voice');
 const { 
@@ -30,6 +30,29 @@ const play = require('play-dl');
 const config = require('../../config.json');
 const { getYtDlpPath } = require('./ytUtils');
 
+function cleanSongTitle(title) {
+  if (!title || typeof title !== 'string') return '';
+  return title
+    .replace(/\(Official.*?\)/gi, '')
+    .replace(/\[Official.*?\]/gi, '')
+    .replace(/\(Audio.*?\)/gi, '')
+    .replace(/\[Audio.*?\]/gi, '')
+    .replace(/\(Lyric.*?\)/gi, '')
+    .replace(/\[Lyric.*?\]/gi, '')
+    .replace(/\(4K.*?\)/gi, '')
+    .replace(/\[4K.*?\]/gi, '')
+    .replace(/\|.*$/g, '')
+    .replace(/ft\..*$/gi, '')
+    .replace(/feat\..*$/gi, '')
+    .trim();
+}
+
+function extractYouTubeVideoId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  return match ? match[1] : null;
+}
+
 class GuildQueue {
   constructor(manager, guild, voiceChannel, textChannel, connection) {
     this.manager = manager;
@@ -38,7 +61,7 @@ class GuildQueue {
     this.textChannel = textChannel;
     this.connection = connection;
 
-    // Create player with NoSubscriberBehavior.Play so audio immediately starts without pausing
+    // Create audio player with optimal buffering behavior
     this.player = createAudioPlayer({
       behaviors: {
         noSubscriber: NoSubscriberBehavior.Play,
@@ -52,15 +75,17 @@ class GuildQueue {
     this.currentResource = null;
     this.loopMode = 'off'; // 'off', 'track', 'queue'
     this.volume = 100; // 0 - 200
-    this.autoplay = true; // Smart recommendation on queue finish
-    this.playedHistory = new Set(); // Track played URLs/titles
+    this.autoplay = true; // Smart recommendation on queue finish (like Spotify Radio)
+    this.playedHistory = new Set(); // Track played IDs, URLs, and titles
     this.isPlaying = false;
     this.isPaused = false;
     this.idleTimer = null;
     this.progressInterval = null;
     this.nowPlayingMessage = null;
 
-    this.connection.subscribe(this.player);
+    if (this.connection && typeof this.connection.subscribe === 'function') {
+      this.connection.subscribe(this.player);
+    }
     this.setupListeners();
   }
 
@@ -82,30 +107,32 @@ class GuildQueue {
         this.textChannel.send({
           embeds: [
             new EmbedBuilder()
-              .setTitle('⚠️ Playback Error')
-              .setDescription(`Encountered an issue playing **${this.currentSong ? this.currentSong.title : 'Track'}**:\n\`${error.message}\``)
-              .setColor(config.embedColors?.danger || '#ED4245')
+              .setTitle('⚠️ Playback Notice')
+              .setDescription(`Playback finished or encountered an issue with **${this.currentSong ? this.currentSong.title : 'Track'}**.\nAuto-skipping to next song...`)
+              .setColor(config.embedColors?.warning || '#FEE75C')
           ]
-        }).catch(() => null);
+        }).then(m => setTimeout(() => m.delete().catch(() => null), 8000)).catch(() => null);
       }
       this.handleSongEnd();
     });
 
     // Connection state listeners
-    this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
-      try {
-        await Promise.race([
-          entersState(this.connection, VoiceConnectionStatus.Signalling, 5_000),
-          entersState(this.connection, VoiceConnectionStatus.Connecting, 5_000)
-        ]);
-      } catch {
-        this.destroy();
-      }
-    });
+    if (this.connection && typeof this.connection.on === 'function') {
+      this.connection.on(VoiceConnectionStatus.Disconnected, async () => {
+        try {
+          await Promise.race([
+            entersState(this.connection, VoiceConnectionStatus.Signalling, 5_000),
+            entersState(this.connection, VoiceConnectionStatus.Connecting, 5_000)
+          ]);
+        } catch {
+          this.destroy();
+        }
+      });
 
-    this.connection.on(VoiceConnectionStatus.Destroyed, () => {
-      this.destroy();
-    });
+      this.connection.on(VoiceConnectionStatus.Destroyed, () => {
+        this.destroy();
+      });
+    }
   }
 
   parseDurationToSeconds(dur) {
@@ -118,6 +145,13 @@ class GuildQueue {
     return 0;
   }
 
+  /**
+   * Resilient 4-Tier Stream Resolver
+   * Tier 1: Direct SoundCloud URL stream
+   * Tier 2: High-Speed SoundCloud Smart Search & Stream (100% reliable on Render/Cloud IPs with 0 IP blocks)
+   * Tier 3: yt-dlp native audio pipe with Android client parameters & buffer optimizations
+   * Tier 4: play-dl stream fallback
+   */
   async getLiveAudioStream(song) {
     if (!song) return null;
 
@@ -134,27 +168,27 @@ class GuildQueue {
       }
     }
 
-    // 2. High-speed SoundCloud Search & Stream (100% Reliable on Cloud Datacenter IPs)
+    // 2. High-speed SoundCloud Search & Stream (100% Reliable on Render / Datacenter IPs)
     try {
       await this.manager.initSoundCloud();
-      const cleanTitle = (song.title || '')
-        .replace(/\(Official.*?\)/gi, '')
-        .replace(/\[Official.*?\]/gi, '')
-        .replace(/\|.*$/g, '')
-        .trim();
+      const cleanTitle = cleanSongTitle(song.title || '');
       const searchKeyword = `${cleanTitle} ${song.author || ''}`.trim();
       const scResults = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
       if (scResults && scResults.length > 0 && scResults[0].url) {
-        const scStream = await play.stream(scResults[0].url);
-        if (scStream && scStream.stream) {
-          return { stream: scStream.stream, type: scStream.type };
+        const scDuration = scResults[0].durationInSec || 0;
+        // Verify valid track duration (prevent tiny snippets or broken 10h loops)
+        if (scDuration === 0 || (scDuration >= 30 && scDuration <= 1800)) {
+          const scStream = await play.stream(scResults[0].url);
+          if (scStream && scStream.stream) {
+            return { stream: scStream.stream, type: scStream.type };
+          }
         }
       }
     } catch (scErr) {
       console.warn('[SOUNDCLOUD SEARCH STREAM ERROR]:', scErr.message);
     }
 
-    // 3. YouTube yt-dlp stream fallback
+    // 3. YouTube yt-dlp native audio pipe fallback (Android client bypass)
     const ytDlpPath = getYtDlpPath();
     if (ytDlpPath && song.url) {
       try {
@@ -166,8 +200,8 @@ class GuildQueue {
           '--no-playlist',
           '--no-check-certificates',
           '--no-warnings',
-          '--limit-rate', '2M',
-          '--buffer-size', '64K'
+          '--limit-rate', '3M',
+          '--buffer-size', '128K'
         ], {
           stdio: ['ignore', 'pipe', 'ignore']
         });
@@ -176,6 +210,18 @@ class GuildQueue {
         return { stream: ytProcess.stdout, type: StreamType.Arbitrary };
       } catch (ytErr) {
         console.warn('[YT-DLP STREAM FALLBACK ERROR]:', ytErr.message);
+      }
+    }
+
+    // 4. play-dl direct stream fallback
+    if (song.url) {
+      try {
+        const directStream = await play.stream(song.url);
+        if (directStream && directStream.stream) {
+          return { stream: directStream.stream, type: directStream.type };
+        }
+      } catch (directErr) {
+        console.warn('[PLAY-DL DIRECT STREAM ERROR]:', directErr.message);
       }
     }
 
@@ -195,7 +241,7 @@ class GuildQueue {
       this.currentProcess = null;
     }
 
-    // If queue is empty, check if Smart Autoplay is enabled
+    // If queue is empty, trigger Smart Autoplay / Radio (Spotify-like taste match)
     if (this.songs.length === 0 && this.autoplay && this.currentSong) {
       const prevSong = this.currentSong;
       try {
@@ -210,9 +256,9 @@ class GuildQueue {
                   .setTitle('📻 Smart Autoplay • Matching Your Taste')
                   .setDescription(`Auto-queueing next track based on **${prevSong.title}**:\n**[${recSong.title}](${recSong.url})**`)
                   .setColor(config.embedColors?.primary || '#5865F2')
-                  .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'YouTube'}` })
+                  .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'Music'}` })
               ]
-            }).then(m => setTimeout(() => m.delete().catch(() => null), 10000)).catch(() => null);
+            }).then(m => setTimeout(() => m.delete().catch(() => null), 9000)).catch(() => null);
           }
         }
       } catch (recErr) {
@@ -244,11 +290,17 @@ class GuildQueue {
 
     this.currentSong = this.songs.shift();
 
-    // Track history to avoid repetitions
+    // Track history to avoid repetitions (up to 200 items)
     if (this.currentSong) {
-      if (this.currentSong.url) this.playedHistory.add(this.currentSong.url);
-      if (this.currentSong.title) this.playedHistory.add(this.currentSong.title);
-      if (this.playedHistory.size > 80) {
+      if (this.currentSong.url) this.playedHistory.add(this.currentSong.url.toLowerCase());
+      if (this.currentSong.title) {
+        this.playedHistory.add(this.currentSong.title.toLowerCase());
+        this.playedHistory.add(cleanSongTitle(this.currentSong.title).toLowerCase());
+      }
+      const vId = extractYouTubeVideoId(this.currentSong.url);
+      if (vId) this.playedHistory.add(vId.toLowerCase());
+
+      if (this.playedHistory.size > 200) {
         const firstKey = this.playedHistory.values().next().value;
         this.playedHistory.delete(firstKey);
       }
@@ -299,10 +351,10 @@ class GuildQueue {
           embeds: [
             new EmbedBuilder()
               .setTitle('⚠️ Could Not Play Song')
-              .setDescription(`Failed to stream **${this.currentSong.title}**:\n\`${err.message}\``)
+              .setDescription(`Failed to stream **${this.currentSong.title}**:\n\`${err.message}\`\nSkipping to next track...`)
               .setColor(config.embedColors?.danger || '#ED4245')
           ]
-        }).catch(() => null);
+        }).then(m => setTimeout(() => m.delete().catch(() => null), 8000)).catch(() => null);
       }
       this.playNext();
     }
@@ -335,7 +387,6 @@ class GuildQueue {
 
     const current = this.currentSong;
 
-    // Use resource playbackDuration if available for precise frame-accurate time
     let elapsed = 0;
     if (this.currentResource && typeof this.currentResource.playbackDuration === 'number' && this.currentResource.playbackDuration > 0) {
       elapsed = Math.floor(this.currentResource.playbackDuration / 1000);
@@ -371,7 +422,7 @@ class GuildQueue {
       .addFields(
         { name: '👤 Source / Requester', value: requesterDisplay, inline: true },
         { name: '⏱️ Duration', value: `\`${current.duration || 'Unknown'}\``, inline: true },
-        { name: '📺 Author / Channel', value: `\`${current.author || 'Hinata Music'}\``, inline: true }
+        { name: '📺 Author / Channel', value: `\`${current.author || 'Music'}\``, inline: true }
       )
       .setColor(config.embedColors?.primary || '#5865F2')
       .setTimestamp();
@@ -580,4 +631,3 @@ class GuildQueue {
 }
 
 module.exports = GuildQueue;
-

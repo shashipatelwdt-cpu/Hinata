@@ -155,13 +155,8 @@ class PrefixCommandHandler {
             queue.songs.push(song);
 
             if (!queue.isPlaying) {
-              const startEmbed = new EmbedBuilder()
-                .setTitle('🎶 Starting Playback')
-                .setDescription(`Connecting to <#${voiceChannel.id}> and playing **[${song.title}](${song.url})**`)
-                .setColor(config.embedColors?.primary || '#5865F2');
-
               if (searchMsg) {
-                await searchMsg.edit({ embeds: [startEmbed] }).catch(() => null);
+                await searchMsg.delete().catch(() => null);
               }
               queue.playNext();
             } else {
