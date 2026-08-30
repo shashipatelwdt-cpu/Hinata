@@ -61,7 +61,9 @@ class MusicManager {
     this.queues = new Map();
     this.innertube = null;
     this.innertubePromise = null;
-    this.initSoundCloud();
+    this.scClientId = null;
+    this.scInitPromise = null;
+    this.initSoundCloud().catch(() => null);
     this.getInnertube().catch(() => null);
   }
 
@@ -91,14 +93,28 @@ class MusicManager {
   }
 
   async initSoundCloud() {
-    try {
-      if (typeof play.getFreeClientID === 'function') {
-        const clientID = await play.getFreeClientID().catch(() => null);
-        if (clientID) {
-          await play.setToken({ soundcloud: { client_id: clientID } }).catch(() => null);
+    if (this.scClientId) return this.scClientId;
+    if (this.scInitPromise) return this.scInitPromise;
+
+    this.scInitPromise = (async () => {
+      try {
+        if (typeof play.getFreeClientID === 'function') {
+          const clientID = await play.getFreeClientID().catch(() => null);
+          if (clientID) {
+            this.scClientId = clientID;
+            await play.setToken({ soundcloud: { client_id: clientID } }).catch(() => null);
+            return clientID;
+          }
         }
+      } catch (err) {
+        console.warn('[SOUNDCLOUD INIT WARN]:', err.message);
+      } finally {
+        this.scInitPromise = null;
       }
-    } catch {}
+      return null;
+    })();
+
+    return this.scInitPromise;
   }
 
   getQueue(guildId) {

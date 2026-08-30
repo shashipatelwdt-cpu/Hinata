@@ -182,10 +182,13 @@ class GuildQueue {
       await this.manager.initSoundCloud();
       const cleanTitle = cleanSongTitle(song.title || '');
       const searchKeyword = `${cleanTitle} ${song.author || ''}`.trim();
-      const scResults = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
+      
+      const scSearchPromise = play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
+      const timeoutPromise = new Promise(res => setTimeout(() => res(null), 3500));
+      const scResults = await Promise.race([scSearchPromise, timeoutPromise]);
+      
       if (scResults && scResults.length > 0 && scResults[0].url) {
         const scDuration = scResults[0].durationInSec || 0;
-        // Verify valid track duration (prevent tiny snippets or broken 10h loops)
         if (scDuration === 0 || (scDuration >= 30 && scDuration <= 1800)) {
           const scStream = await play.stream(scResults[0].url);
           if (scStream && scStream.stream) {
