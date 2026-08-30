@@ -177,30 +177,21 @@ class GuildQueue {
       }
     }
 
-    // 2. High-speed SoundCloud Search & Stream (100% Reliable on Render / Datacenter IPs)
-    try {
-      await this.manager.initSoundCloud();
-      const cleanTitle = cleanSongTitle(song.title || '');
-      const searchKeyword = `${cleanTitle} ${song.author || ''}`.trim();
-      
-      const scSearchPromise = play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
-      const timeoutPromise = new Promise(res => setTimeout(() => res(null), 3500));
-      const scResults = await Promise.race([scSearchPromise, timeoutPromise]);
-      
-      if (scResults && scResults.length > 0 && scResults[0].url) {
-        const scDuration = scResults[0].durationInSec || 0;
-        if (scDuration === 0 || (scDuration >= 30 && scDuration <= 1800)) {
-          const scStream = await play.stream(scResults[0].url);
-          if (scStream && scStream.stream) {
-            return { stream: scStream.stream, type: scStream.type };
-          }
+    // 2. Direct exact YouTube Stream via play-dl (Instant & Exact Track Match)
+    if (song.url && (song.url.includes('youtube.com') || song.url.includes('youtu.be'))) {
+      try {
+        const streamPromise = play.stream(song.url, { discordPlayerCompatibility: true, quality: 2 });
+        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 4500));
+        const ytStream = await Promise.race([streamPromise, timeoutPromise]);
+        if (ytStream && ytStream.stream) {
+          return { stream: ytStream.stream, type: ytStream.type };
         }
+      } catch (ytDirectErr) {
+        console.warn('[PLAY-DL DIRECT STREAM WARN]:', ytDirectErr.message);
       }
-    } catch (scErr) {
-      console.warn('[SOUNDCLOUD SEARCH STREAM ERROR]:', scErr.message);
     }
 
-    // 3. YouTube yt-dlp native audio pipe fallback (Android client bypass)
+    // 3. YouTube yt-dlp native audio pipe fallback (Android client bypass - Exact track)
     const ytDlpPath = getYtDlpPath();
     if (ytDlpPath && song.url) {
       try {
@@ -225,7 +216,30 @@ class GuildQueue {
       }
     }
 
-    // 4. play-dl direct stream fallback
+    // 4. SoundCloud fallback search (only if direct YouTube failed)
+    try {
+      await this.manager.initSoundCloud();
+      const cleanTitle = cleanSongTitle(song.title || '');
+      const searchKeyword = `${cleanTitle} ${song.author || ''}`.trim();
+      
+      const scSearchPromise = play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
+      const timeoutPromise = new Promise(res => setTimeout(() => res(null), 3500));
+      const scResults = await Promise.race([scSearchPromise, timeoutPromise]);
+      
+      if (scResults && scResults.length > 0 && scResults[0].url) {
+        const scDuration = scResults[0].durationInSec || 0;
+        if (scDuration === 0 || (scDuration >= 30 && scDuration <= 1800)) {
+          const scStream = await play.stream(scResults[0].url);
+          if (scStream && scStream.stream) {
+            return { stream: scStream.stream, type: scStream.type };
+          }
+        }
+      }
+    } catch (scErr) {
+      console.warn('[SOUNDCLOUD SEARCH STREAM ERROR]:', scErr.message);
+    }
+
+    // 5. play-dl direct stream fallback
     if (song.url) {
       try {
         const directStream = await play.stream(song.url);

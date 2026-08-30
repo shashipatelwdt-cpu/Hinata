@@ -75,41 +75,18 @@ class UpdateAnnouncer {
 
       const botUser = client.user;
       const embed = new EmbedBuilder()
-        .setTitle('🚀 Hinata System Update Deployed')
+        .setTitle('🚀 Hinata Bot Updated')
         .setDescription(
-          `A new build of **${config.botName || 'Hinata'}** has been successfully deployed & verified on Render!`
+          `**${config.botName || 'Hinata'}** has been successfully updated with the latest improvements!\n\n` +
+          `• ⚡ **Fix:** Instant song playback & accurate song streaming\n` +
+          `• 💤 **Fix:** Automatic VC leave when empty (Autoplay blocked when alone)\n` +
+          `• 👋 **New:** \`/leave\` command\n\n` +
+          `**Release:** \`${commitInfo.hash}\` • <t:${Math.floor(Date.now() / 1000)}:R>`
         )
-        .addFields(
-          {
-            name: '📌 Latest Release / Commit',
-            value: `\`${commitInfo.hash}\` • **${commitInfo.message}**`,
-            inline: false
-          },
-          {
-            name: '✨ Highlights & New Features',
-            value: [
-              '• ⚡ **Instant Music Engine:** Pre-cached client token & zero playback delay',
-              '• 💤 **Auto VC Inactivity Leave:** Auto-disconnect when voice channel is empty',
-              '• 👋 **New Slash Command:** `/leave` to disconnect with 1-click',
-              '• 🌐 **24/7 Cloud Engine:** Active Render uptime & zero 429 stream errors'
-            ].join('\n'),
-            inline: false
-          },
-          {
-            name: '🟢 Operational Status',
-            value: `\`Online\` in **${client.guilds.cache.size.toLocaleString()}** server(s)`,
-            inline: true
-          },
-          {
-            name: '⏱️ Deployed At',
-            value: `<t:${Math.floor(Date.now() / 1000)}:R>`,
-            inline: true
-          }
-        )
-        .setColor(config.embedColors?.success || '#57F287')
+        .setColor(config.embedColors?.primary || '#5865F2')
         .setThumbnail(botUser.displayAvatarURL({ size: 256 }))
         .setFooter({
-          text: `${config.botName || 'Hinata'} CI/CD Engine • Automated Release`,
+          text: `${config.botName || 'Hinata'} Updates`,
           iconURL: botUser.displayAvatarURL()
         })
         .setTimestamp();
