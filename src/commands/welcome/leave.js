@@ -5,7 +5,7 @@ const config = require('../../../config.json');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('leave')
+    .setName('goodbye')
     .setDescription('👋 Configure goodbye / member leave messages')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand(sub =>
