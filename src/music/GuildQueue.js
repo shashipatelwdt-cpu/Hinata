@@ -183,11 +183,9 @@ class GuildQueue {
   }
 
   /**
-   * Resilient Multi-Tier Stream Resolver
-   * Tier 1: Direct URL yt-dlp pipe -> FFmpeg 48kHz Stereo PCM
-   * Tier 2: Extracted CDN Media URL (yt-dlp -g) -> FFmpeg direct stream with auto-reconnect
-   * Tier 3: Search-based yt-dlp pipe (ytsearch1:title author)
-   * Tier 4: SoundCloud search / direct fallback via yt-dlp (scsearch1:title author)
+   * High-Performance Low-Latency Audio Stream Resolver
+   * Utilizes FFmpeg native libopus encoding (160kbps stereo) with instant packet flushing
+   * Eliminates JS Opus CPU stalls, audio frame drops, and latency bottlenecks
    */
   async getLiveAudioStream(song) {
     if (!song) return null;
@@ -197,16 +195,20 @@ class GuildQueue {
     const { PassThrough } = require('stream');
     const { execFile } = require('child_process');
 
+    const volumeLevel = Math.max(0.05, Math.min(2.0, (this.volume || 100) / 100));
+
     const commonYtDlpArgs = [
-      '--js-runtimes', 'node',
-      '--extractor-args', 'youtube:player_client=android,web,mweb,ios,tv_embedded',
+      '--extractor-args', 'youtube:player_client=android,mweb',
       '--no-playlist',
       '--no-check-certificates',
       '--no-warnings',
+      '--prefer-free-formats',
+      '--geo-bypass',
+      '--socket-timeout', '6',
       '--no-cache-dir'
     ];
 
-    // Method A: Pipe from yt-dlp through FFmpeg
+    // Method A: Pipe from yt-dlp through native FFmpeg libopus OggOpus
     const streamWithPipeline = async (target) => {
       if (!ytDlpPath || !target) return null;
       return new Promise((resolve) => {
@@ -224,9 +226,9 @@ class GuildQueue {
             target,
             ...commonYtDlpArgs,
             '-o', '-',
-            '-f', 'ba/b/bestaudio/best',
-            '--limit-rate', '15M',
-            '--buffer-size', '512K'
+            '-f', '251/140/ba/b/bestaudio',
+            '--limit-rate', '50M',
+            '--buffer-size', '64K'
           ], {
             stdio: ['ignore', 'pipe', 'ignore']
           });
@@ -234,16 +236,21 @@ class GuildQueue {
           ffmpegProc = spawn(ffmpegPath, [
             '-i', 'pipe:0',
             '-analyzeduration', '0',
+            '-probesize', '32768',
+            '-fflags', '+nobuffer+flush_packets',
             '-loglevel', '0',
-            '-f', 's16le',
+            '-af', `volume=${volumeLevel}`,
+            '-c:a', 'libopus',
+            '-b:a', '160k',
             '-ar', '48000',
             '-ac', '2',
+            '-f', 'ogg',
             'pipe:1'
           ], {
             stdio: ['pipe', 'pipe', 'ignore']
           });
 
-          const passThrough = new PassThrough({ highWaterMark: 1024 * 512 });
+          const passThrough = new PassThrough({ highWaterMark: 64 * 1024 });
 
           ytProc.stdout.on('error', () => {});
           ffmpegProc.stdin.on('error', () => {});
@@ -259,16 +266,16 @@ class GuildQueue {
               cleanup();
               resolve(null);
             }
-          }, 25000);
+          }, 20000);
 
-          ffmpegProc.stdout.once('data', () => {
+          passThrough.once('data', () => {
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timeout);
               resolve({
                 stream: passThrough,
                 process: { kill: cleanup },
-                type: StreamType.Raw
+                type: StreamType.OggOpus
               });
             }
           });
@@ -309,7 +316,7 @@ class GuildQueue {
       });
     };
 
-    // Method B: Direct extracted media URL through FFmpeg
+    // Method B: Direct extracted media URL through native FFmpeg libopus OggOpus
     const streamWithExtractedUrl = async (target) => {
       if (!ytDlpPath || !target) return null;
       return new Promise((resolve) => {
@@ -326,15 +333,15 @@ class GuildQueue {
             cleanup();
             resolve(null);
           }
-        }, 25000);
+        }, 20000);
 
         try {
           execFile(ytDlpPath, [
             target,
             ...commonYtDlpArgs,
             '-g',
-            '-f', 'ba/b/bestaudio/best'
-          ], { timeout: 15000 }, (err, stdout) => {
+            '-f', '251/140/ba/b/bestaudio'
+          ], { timeout: 12000 }, (err, stdout) => {
             if (err || !stdout || isResolved) {
               if (!isResolved) {
                 isResolved = true;
@@ -359,31 +366,36 @@ class GuildQueue {
             ffmpegProc = spawn(ffmpegPath, [
               '-reconnect', '1',
               '-reconnect_streamed', '1',
-              '-reconnect_delay_max', '5',
+              '-reconnect_delay_max', '4',
               '-i', mediaUrl,
               '-analyzeduration', '0',
+              '-probesize', '32768',
+              '-fflags', '+nobuffer+flush_packets',
               '-loglevel', '0',
-              '-f', 's16le',
+              '-af', `volume=${volumeLevel}`,
+              '-c:a', 'libopus',
+              '-b:a', '160k',
               '-ar', '48000',
               '-ac', '2',
+              '-f', 'ogg',
               'pipe:1'
             ], {
               stdio: ['ignore', 'pipe', 'ignore']
             });
 
-            const passThrough = new PassThrough({ highWaterMark: 1024 * 512 });
+            const passThrough = new PassThrough({ highWaterMark: 64 * 1024 });
             ffmpegProc.stdout.on('error', () => {});
             passThrough.on('error', () => {});
             ffmpegProc.stdout.pipe(passThrough);
 
-            ffmpegProc.stdout.once('data', () => {
+            passThrough.once('data', () => {
               if (!isResolved) {
                 isResolved = true;
                 clearTimeout(timeout);
                 resolve({
                   stream: passThrough,
                   process: { kill: cleanup },
-                  type: StreamType.Raw
+                  type: StreamType.OggOpus
                 });
               }
             });
@@ -413,7 +425,7 @@ class GuildQueue {
       });
     };
 
-    // 1. Direct song URL with yt-dlp + FFmpeg pipe
+    // 1. Direct song URL with yt-dlp + FFmpeg libopus pipe
     if (song.url && (song.url.startsWith('http://') || song.url.startsWith('https://'))) {
       const res = await streamWithPipeline(song.url);
       if (res && res.stream) {
@@ -429,7 +441,7 @@ class GuildQueue {
       }
     }
 
-    // 3. Search-based yt-dlp stream (resolves 100% of tracks if URL was blocked or invalid)
+    // 3. Search-based yt-dlp stream (resolves tracks if URL was blocked or invalid)
     const cleanTitle = cleanSongTitle(song.title || '');
     if (cleanTitle) {
       const searchTarget = `ytsearch1:${cleanTitle} ${song.author || ''}`.trim();
@@ -585,9 +597,10 @@ class GuildQueue {
         throw new Error('Could not resolve audio stream for track');
       }
 
+      const isRawStream = streamData.type === StreamType.Raw;
       const resource = createAudioResource(streamData.stream, {
-        inputType: streamData.type || StreamType.Arbitrary,
-        inlineVolume: true
+        inputType: streamData.type || StreamType.OggOpus,
+        inlineVolume: isRawStream
       });
 
       if (resource.playStream) {
@@ -596,7 +609,9 @@ class GuildQueue {
         });
       }
 
-      resource.volume.setVolume(this.volume / 100);
+      if (resource.volume) {
+        resource.volume.setVolume(this.volume / 100);
+      }
       this.currentResource = resource;
 
       this.player.play(resource);

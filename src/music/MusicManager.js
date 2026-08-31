@@ -62,6 +62,7 @@ function cleanSongTitle(title) {
 class MusicManager {
   constructor() {
     this.queues = new Map();
+    this.searchCache = new Map();
     this.innertube = null;
     this.innertubePromise = null;
     this.scClientId = null;
@@ -380,6 +381,26 @@ class MusicManager {
     if (!query || typeof query !== 'string') return [];
 
     const cleanQuery = query.trim();
+    const cacheKey = cleanQuery.toLowerCase();
+
+    // Check search memory cache (valid for 30 minutes)
+    if (this.searchCache.has(cacheKey)) {
+      const entry = this.searchCache.get(cacheKey);
+      if (Date.now() - entry.time < 1800000 && Array.isArray(entry.results) && entry.results.length > 0) {
+        return entry.results.map(r => ({ ...r, requester }));
+      }
+    }
+
+    const setCache = (results) => {
+      if (Array.isArray(results) && results.length > 0) {
+        if (this.searchCache.size > 200) {
+          const firstKey = this.searchCache.keys().next().value;
+          this.searchCache.delete(firstKey);
+        }
+        this.searchCache.set(cacheKey, { time: Date.now(), results });
+      }
+      return results;
+    };
 
     try {
       // 0. Custom User Playlist Reference (e.g. "playlist:myfavs" or "pl:chill" or direct playlist name)
@@ -561,7 +582,7 @@ class MusicManager {
       const searchResults = await ytSearch(cleanQuery);
       if (searchResults && searchResults.videos && searchResults.videos.length > 0) {
         const first = searchResults.videos[0];
-        return [{
+        return setCache([{
           title: first.title,
           url: first.url,
           duration: first.timestamp || 'Unknown',
@@ -570,7 +591,7 @@ class MusicManager {
           author: first.author?.name || 'YouTube',
           requester,
           source: 'youtube'
-        }];
+        }]);
       }
     } catch (error) {
       console.error('[SEARCH ERROR]:', error.message);
@@ -578,7 +599,7 @@ class MusicManager {
         const yt = await ytSearch(cleanQuery);
         if (yt?.videos && yt.videos.length > 0) {
           const v = yt.videos[0];
-          return [{
+          return setCache([{
             title: v.title,
             url: v.url,
             duration: v.timestamp || 'Unknown',
@@ -587,7 +608,7 @@ class MusicManager {
             author: v.author?.name || 'YouTube',
             requester,
             source: 'youtube'
-          }];
+          }]);
         }
       } catch {}
     }
