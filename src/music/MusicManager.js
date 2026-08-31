@@ -428,72 +428,64 @@ class MusicManager {
       // 1. Spotify URL Handling (Track, Album, Playlist)
       if (cleanQuery.includes('spotify.com')) {
         try {
+          await this.initSoundCloud();
+          let searchKeyword = '';
+          let coverArt = null;
+
           if (cleanQuery.includes('/track/')) {
             const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(cleanQuery)}`;
             const oembedRes = await fetch(oembedUrl).catch(() => null);
             if (oembedRes && oembedRes.ok) {
               const oembedData = await oembedRes.json();
               if (oembedData.title) {
-                const searchKeyword = `${oembedData.title} ${oembedData.author_name || ''}`.trim();
-                const ytResults = await ytSearch(searchKeyword);
-                const first = ytResults?.videos?.[0];
-                if (first) {
-                  return [{
-                    title: oembedData.title || first.title,
-                    url: first.url,
-                    duration: first.timestamp || 'Unknown',
-                    durationSec: first.seconds || 0,
-                    thumbnail: oembedData.thumbnail_url || first.thumbnail,
-                    author: oembedData.author_name || first.author?.name || 'Spotify Track',
-                    requester,
-                    source: 'spotify'
-                  }];
-                }
+                searchKeyword = `${oembedData.title} ${oembedData.author_name || ''}`.trim();
+                coverArt = oembedData.thumbnail_url;
               }
             }
           }
 
-          const spType = play.sp_validate(cleanQuery);
-          if (spType) {
+          if (!searchKeyword) {
+            const spType = play.sp_validate(cleanQuery);
             if (spType === 'track') {
               const spData = await play.spotify(cleanQuery);
-              const ytResults = await ytSearch(`${spData.name} ${spData.artists ? spData.artists.map(a => a.name).join(' ') : ''}`);
-              const first = ytResults?.videos?.[0];
-              if (first) {
-                return [{
-                  title: spData.name || first.title,
-                  url: first.url,
-                  duration: first.timestamp || (spData.durationInSec ? `${Math.floor(spData.durationInSec / 60)}:${(spData.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown'),
-                  durationSec: first.seconds || spData.durationInSec || 0,
-                  thumbnail: spData.thumbnail?.url || first.thumbnail,
-                  author: spData.artists?.[0]?.name || first.author?.name || 'Spotify Track',
+              searchKeyword = `${spData.name} ${spData.artists ? spData.artists.map(a => a.name).join(' ') : ''}`.trim();
+              coverArt = spData.thumbnail?.url;
+            }
+          }
+
+          if (searchKeyword) {
+            // Fast SoundCloud resolution for Spotify tracks
+            try {
+              const scResults = await play.search(searchKeyword, { source: { soundcloud: 'tracks' }, limit: 1 });
+              if (scResults && scResults.length > 0 && scResults[0]?.url) {
+                const trk = scResults[0];
+                return setCache([{
+                  title: trk.name || searchKeyword,
+                  url: trk.url,
+                  duration: trk.durationInSec ? `${Math.floor(trk.durationInSec / 60)}:${(trk.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
+                  durationSec: trk.durationInSec || 0,
+                  thumbnail: coverArt || trk.thumbnail,
+                  author: trk.user?.name || 'Spotify Track',
                   requester,
-                  source: 'spotify'
-                }];
+                  source: 'soundcloud'
+                }]);
               }
-            } else if (spType === 'playlist' || spType === 'album') {
-              const spData = await play.spotify(cleanQuery);
-              const tracks = await spData.all_tracks();
-              const resolvedTracks = [];
-              const limit = Math.min(tracks.length, 30);
-              for (let i = 0; i < limit; i++) {
-                const trk = tracks[i];
-                const yt = await ytSearch(`${trk.name} ${trk.artists ? trk.artists.map(a => a.name).join(' ') : ''}`);
-                const vid = yt?.videos?.[0];
-                if (vid) {
-                  resolvedTracks.push({
-                    title: trk.name,
-                    url: vid.url,
-                    duration: vid.timestamp || `${Math.floor(trk.durationInSec / 60)}:${(trk.durationInSec % 60).toString().padStart(2, '0')}`,
-                    durationSec: vid.seconds || trk.durationInSec || 0,
-                    thumbnail: trk.thumbnail?.url || vid.thumbnail,
-                    author: trk.artists?.[0]?.name || vid.author?.name || 'Spotify Track',
-                    requester,
-                    source: 'spotify'
-                  });
-                }
-              }
-              if (resolvedTracks.length > 0) return resolvedTracks;
+            } catch {}
+
+            // YouTube fallback for Spotify
+            const ytResults = await ytSearch(searchKeyword);
+            const first = ytResults?.videos?.[0];
+            if (first) {
+              return setCache([{
+                title: first.title,
+                url: first.url,
+                duration: first.timestamp || 'Unknown',
+                durationSec: first.seconds || 0,
+                thumbnail: coverArt || first.thumbnail,
+                author: first.author?.name || 'Spotify Track',
+                requester,
+                source: 'youtube'
+              }]);
             }
           }
         } catch (spErr) {
@@ -507,7 +499,7 @@ class MusicManager {
         try {
           const plResults = await ytSearch({ listId: playlistId });
           if (plResults && plResults.videos && plResults.videos.length > 0) {
-            return plResults.videos.map(v => ({
+            return setCache(plResults.videos.map(v => ({
               title: v.title || 'Untitled Track',
               url: `https://www.youtube.com/watch?v=${v.videoId}`,
               duration: v.duration?.timestamp || v.timestamp || 'Unknown',
@@ -516,7 +508,7 @@ class MusicManager {
               author: v.author?.name || 'YouTube',
               requester,
               source: 'youtube'
-            }));
+            })));
           }
         } catch (plErr) {
           console.warn('[YT PLAYLIST SEARCH ERROR]:', plErr.message);
@@ -525,11 +517,11 @@ class MusicManager {
 
       // 3. Direct YouTube Video Link or Short Link
       const videoId = extractYouTubeVideoId(cleanQuery);
-      if (videoId) {
+      if (videoId && (cleanQuery.includes('youtube.com') || cleanQuery.includes('youtu.be'))) {
         try {
           const ytRes = await ytSearch({ videoId });
           if (ytRes) {
-            return [{
+            return setCache([{
               title: ytRes.title || 'YouTube Track',
               url: `https://www.youtube.com/watch?v=${videoId}`,
               duration: ytRes.duration?.timestamp || ytRes.timestamp || 'Unknown',
@@ -538,13 +530,13 @@ class MusicManager {
               author: ytRes.author?.name || 'YouTube',
               requester,
               source: 'youtube'
-            }];
+            }]);
           }
         } catch (ytErr) {
           console.warn('[YT VIDEO ID SEARCH ERROR]:', ytErr.message);
         }
 
-        return [{
+        return setCache([{
           title: 'YouTube Track',
           url: `https://www.youtube.com/watch?v=${videoId}`,
           duration: 'Unknown',
@@ -553,16 +545,16 @@ class MusicManager {
           author: 'YouTube',
           requester,
           source: 'youtube'
-        }];
+        }]);
       }
 
-      // 4. SoundCloud Track Link (Direct Web URL)
-      if (cleanQuery.includes('soundcloud.com') && !cleanQuery.includes('api.soundcloud.com')) {
+      // 4. SoundCloud Direct Link
+      if (cleanQuery.includes('soundcloud.com')) {
         try {
           await this.initSoundCloud();
           const scInfo = await play.soundcloud(cleanQuery);
           if (scInfo) {
-            return [{
+            return setCache([{
               title: scInfo.name || 'SoundCloud Track',
               url: scInfo.url || cleanQuery,
               duration: scInfo.durationInSec ? `${Math.floor(scInfo.durationInSec / 60)}:${(scInfo.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
@@ -571,14 +563,35 @@ class MusicManager {
               author: scInfo.user?.name || 'SoundCloud',
               requester,
               source: 'soundcloud'
-            }];
+            }]);
           }
         } catch (scErr) {
           console.warn('[SOUNDCLOUD RESOLVE ERROR]:', scErr.message);
         }
       }
 
-      // 5. Keyword Search: Fast & Reliable YouTube Search
+      // 5. Keyword Search: Instant Sub-Second Search Engine (SoundCloud HQ -> Fast YouTube Fallback)
+      try {
+        await this.initSoundCloud();
+        const scResults = await play.search(cleanQuery, { source: { soundcloud: 'tracks' }, limit: 1 });
+        if (scResults && scResults.length > 0 && scResults[0]?.url) {
+          const track = scResults[0];
+          return setCache([{
+            title: track.name || cleanQuery,
+            url: track.url,
+            duration: track.durationInSec ? `${Math.floor(track.durationInSec / 60)}:${(track.durationInSec % 60).toString().padStart(2, '0')}` : 'Unknown',
+            durationSec: track.durationInSec || 0,
+            thumbnail: track.thumbnail || 'https://i.imgur.com/8Q7kYdY.png',
+            author: track.user?.name || 'SoundCloud Artist',
+            requester,
+            source: 'soundcloud'
+          }]);
+        }
+      } catch (scErr) {
+        console.warn('[FAST SEARCH SOUNDCLOUD FALLBACK]:', scErr.message);
+      }
+
+      // YouTube Search Fallback
       const searchResults = await ytSearch(cleanQuery);
       if (searchResults && searchResults.videos && searchResults.videos.length > 0) {
         const first = searchResults.videos[0];

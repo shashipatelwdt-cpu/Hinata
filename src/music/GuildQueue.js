@@ -208,6 +208,93 @@ class GuildQueue {
       '--no-cache-dir'
     ];
 
+    // Method 0: Instant sub-second stream resolver via play-dl (SoundCloud & progressive CDN)
+    const streamWithPlayDl = async (targetUrl) => {
+      try {
+        if (this.manager && typeof this.manager.initSoundCloud === 'function') {
+          await this.manager.initSoundCloud();
+        }
+        const directStream = await play.stream(targetUrl);
+        if (directStream && directStream.stream) {
+          const ffmpegProc = spawn(ffmpegPath, [
+            '-i', 'pipe:0',
+            '-analyzeduration', '0',
+            '-probesize', '32768',
+            '-fflags', '+nobuffer+flush_packets',
+            '-loglevel', '0',
+            '-af', `volume=${volumeLevel}`,
+            '-c:a', 'libopus',
+            '-b:a', '160k',
+            '-ar', '48000',
+            '-ac', '2',
+            '-f', 'ogg',
+            'pipe:1'
+          ], {
+            stdio: ['pipe', 'pipe', 'ignore']
+          });
+
+          const passThrough = new PassThrough({ highWaterMark: 32 * 1024 });
+
+          directStream.stream.on('error', () => {});
+          ffmpegProc.stdin.on('error', () => {});
+          ffmpegProc.stdout.on('error', () => {});
+          passThrough.on('error', () => {});
+
+          directStream.stream.pipe(ffmpegProc.stdin);
+          ffmpegProc.stdout.pipe(passThrough);
+
+          const cleanup = () => {
+            try { directStream.stream.destroy(); } catch {}
+            try { ffmpegProc.kill(); } catch {}
+          };
+
+          return new Promise((resolve) => {
+            let isResolved = false;
+            const timeout = setTimeout(() => {
+              if (!isResolved) {
+                isResolved = true;
+                cleanup();
+                resolve(null);
+              }
+            }, 15000);
+
+            passThrough.once('data', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                resolve({
+                  stream: passThrough,
+                  process: { kill: cleanup },
+                  type: StreamType.OggOpus
+                });
+              }
+            });
+
+            ffmpegProc.on('error', () => {
+              if (!isResolved) {
+                isResolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                resolve(null);
+              }
+            });
+
+            ffmpegProc.on('close', (code) => {
+              if (!isResolved && code !== 0) {
+                isResolved = true;
+                clearTimeout(timeout);
+                cleanup();
+                resolve(null);
+              }
+            });
+          });
+        }
+      } catch (err) {
+        console.warn('[PLAY-DL DIRECT STREAM WARN]:', err.message);
+      }
+      return null;
+    };
+
     // Method A: Pipe from yt-dlp through native FFmpeg libopus OggOpus
     const streamWithPipeline = async (target) => {
       if (!ytDlpPath || !target) return null;
@@ -425,6 +512,15 @@ class GuildQueue {
       });
     };
 
+    // 0. Instant Direct Stream for SoundCloud / progressive audio
+    if (song.url && (song.url.includes('soundcloud.com') || song.source === 'soundcloud')) {
+      const resDl = await streamWithPlayDl(song.url);
+      if (resDl && resDl.stream) {
+        this.currentProcess = resDl.process;
+        return resDl;
+      }
+    }
+
     // 1. Direct song URL with yt-dlp + FFmpeg libopus pipe
     if (song.url && (song.url.startsWith('http://') || song.url.startsWith('https://'))) {
       const res = await streamWithPipeline(song.url);
@@ -458,7 +554,7 @@ class GuildQueue {
       }
     }
 
-    // 4. SoundCloud search / direct fallback via yt-dlp
+    // 4. SoundCloud fallback via yt-dlp
     if (cleanTitle) {
       const scTarget = song.url && song.url.includes('soundcloud.com') ? song.url : `scsearch1:${cleanTitle} ${song.author || ''}`.trim();
       const resSc = await streamWithPipeline(scTarget);
