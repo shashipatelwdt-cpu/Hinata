@@ -47,25 +47,17 @@ module.exports = {
     const humanCount = nonBotMembers.size !== undefined ? nonBotMembers.size : (Array.isArray(nonBotMembers) ? nonBotMembers.length : 0);
 
     if (humanCount === 0) {
-      // Channel is completely empty -> IMMEDIATELY leave and purge queue
       if (queue) {
-        if (queue.textChannel) {
-          queue.textChannel.send({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle('👋 Voice Channel Empty')
-                .setDescription(`Disconnected from **${botVoiceChannel.name || 'Voice Channel'}** and cleared all queued music because everyone left the voice channel.`)
-                .setColor(config.embedColors?.neutral || '#2B2D31')
-                .setFooter({ text: `${config.botName || 'Hinata'} • Auto Leave & Queue Cleared` })
-            ]
-          }).then(m => setTimeout(() => m.delete().catch(() => null), 10000)).catch(() => null);
-        }
-        queue.destroy();
+        queue.startEmptyChannelTimer(20000);
       } else {
         const conn = getVoiceConnection(guild.id);
         if (conn) {
           try { conn.destroy(); } catch {}
         }
+      }
+    } else {
+      if (queue) {
+        queue.cancelEmptyChannelTimer();
       }
     }
   }

@@ -53,7 +53,9 @@ const rest = new REST({ version: '10' }).setToken(token);
       );
       console.log(`✅ Successfully reloaded ${data.length} global application (/) commands.`);
     }
+    process.exit(0);
   } catch (error) {
     console.error('[DEPLOY ERROR]', error);
+    process.exit(1);
   }
 })();

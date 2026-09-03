@@ -198,13 +198,13 @@ class GuildQueue {
     const volumeLevel = Math.max(0.05, Math.min(2.0, (this.volume || 100) / 100));
 
     const commonYtDlpArgs = [
-      '--extractor-args', 'youtube:player_client=android,mweb',
+      '--js-runtimes', 'node',
       '--no-playlist',
       '--no-check-certificates',
       '--no-warnings',
       '--prefer-free-formats',
       '--geo-bypass',
-      '--socket-timeout', '6',
+      '--socket-timeout', '10',
       '--no-cache-dir'
     ];
 
@@ -258,10 +258,12 @@ class GuildQueue {
               }
             }, 15000);
 
-            passThrough.once('data', () => {
+            passThrough.once('data', (chunk) => {
               if (!isResolved) {
                 isResolved = true;
                 clearTimeout(timeout);
+                passThrough.pause();
+                passThrough.unshift(chunk);
                 resolve({
                   stream: passThrough,
                   process: { kill: cleanup },
@@ -355,10 +357,12 @@ class GuildQueue {
             }
           }, 20000);
 
-          passThrough.once('data', () => {
+          passThrough.once('data', (chunk) => {
             if (!isResolved) {
               isResolved = true;
               clearTimeout(timeout);
+              passThrough.pause();
+              passThrough.unshift(chunk);
               resolve({
                 stream: passThrough,
                 process: { kill: cleanup },
@@ -475,10 +479,12 @@ class GuildQueue {
             passThrough.on('error', () => {});
             ffmpegProc.stdout.pipe(passThrough);
 
-            passThrough.once('data', () => {
+            passThrough.once('data', (chunk) => {
               if (!isResolved) {
                 isResolved = true;
                 clearTimeout(timeout);
+                passThrough.pause();
+                passThrough.unshift(chunk);
                 resolve({
                   stream: passThrough,
                   process: { kill: cleanup },
@@ -580,7 +586,7 @@ class GuildQueue {
       this.currentProcess = null;
     }
 
-    // 1. Check if voice channel has human members before triggering Autoplay or next song
+    // 1. Check if voice channel exists
     const currentVC = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
     if (!currentVC) {
       this.destroy();
@@ -591,20 +597,9 @@ class GuildQueue {
     const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
 
     if (humanCount === 0) {
-      console.log(`[VC EMPTY] No users in voice channel ${currentVC.name} (${this.guild.id}). Disconnecting.`);
-      if (this.textChannel) {
-        this.textChannel.send({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle('👋 Voice Channel Empty')
-              .setDescription(`Disconnected from **${currentVC.name}** because everyone left the voice channel.`)
-              .setColor(config.embedColors?.neutral || '#2B2D31')
-              .setFooter({ text: `${config.botName || 'Hinata'} • Auto Inactivity Leave` })
-          ]
-        }).then(m => setTimeout(() => m.delete().catch(() => null), 15000)).catch(() => null);
-      }
-      this.destroy();
-      return;
+      this.startEmptyChannelTimer(20000);
+    } else {
+      this.cancelEmptyChannelTimer();
     }
 
     // 2. If queue is empty, trigger Smart Autoplay / Radio (Spotify-like taste match)

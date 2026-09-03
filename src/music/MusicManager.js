@@ -86,19 +86,9 @@ class MusicManager {
           const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
 
           if (humanCount === 0) {
-            console.log(`[WATCHDOG] VC ${currentVC.name} in guild ${guildId} is empty. Disconnecting and clearing queue.`);
-            if (queue.textChannel) {
-              queue.textChannel.send({
-                embeds: [
-                  new EmbedBuilder()
-                    .setTitle('👋 Voice Channel Empty')
-                    .setDescription(`Disconnected from **${currentVC.name}** and purged music queue because the voice channel is empty.`)
-                    .setColor(config.embedColors?.neutral || '#2B2D31')
-                    .setFooter({ text: `${config.botName || 'Hinata'} • Auto Leave & Queue Cleared` })
-                ]
-              }).then(m => setTimeout(() => m.delete().catch(() => null), 10000)).catch(() => null);
-            }
-            queue.destroy();
+            queue.startEmptyChannelTimer(20000);
+          } else {
+            queue.cancelEmptyChannelTimer();
           }
         }
       } catch (err) {
