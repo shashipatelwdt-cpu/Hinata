@@ -11,12 +11,12 @@ const config = require('../../../config.json');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('leveling')
-    .setDescription('⚙️ Configure Level Up announcements and role rewards')
+    .setDescription('⚙️ Configure Level Up announcements, role rewards, multipliers, and XP management')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addSubcommand(sub =>
       sub
         .setName('config')
-        .setDescription('⚙️ Enable/disable leveling and choose the announcement channel')
+        .setDescription('⚙️ Enable/disable leveling, choose announcement channel, and set XP multiplier')
         .addBooleanOption(opt =>
           opt
             .setName('enabled')
@@ -29,6 +29,14 @@ module.exports = {
             .setDescription('Channel to post level up announcements (leave blank for current channel)')
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(false)
+        )
+        .addNumberOption(opt =>
+          opt
+            .setName('multiplier')
+            .setDescription('XP rate multiplier (e.g. 1.0 for normal, 1.5, or 2.0 for double XP events)')
+            .setRequired(false)
+            .setMinValue(0.5)
+            .setMaxValue(5.0)
         )
     )
     .addSubcommand(sub =>
@@ -60,6 +68,35 @@ module.exports = {
             .setRequired(true)
             .setMinValue(1)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('set_level')
+        .setDescription('⭐ Manually set a member’s level and XP')
+        .addUserOption(opt =>
+          opt
+            .setName('user')
+            .setDescription('Member to modify')
+            .setRequired(true)
+        )
+        .addIntegerOption(opt =>
+          opt
+            .setName('level')
+            .setDescription('Target level')
+            .setRequired(true)
+            .setMinValue(0)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('reset_user')
+        .setDescription('🔄 Reset a member’s XP and level to 0')
+        .addUserOption(opt =>
+          opt
+            .setName('user')
+            .setDescription('Member to reset')
+            .setRequired(true)
+        )
     ),
 
   async execute(interaction) {
@@ -69,18 +106,25 @@ module.exports = {
     if (subcommand === 'config') {
       const enabled = interaction.options.getBoolean('enabled');
       const channel = interaction.options.getChannel('channel');
+      const multiplier = interaction.options.getNumber('multiplier');
 
-      DatabaseManager.setLevelConfig(guild.id, {
+      const updates = {
         enabled,
         channelId: channel ? channel.id : null
-      });
+      };
+      if (multiplier !== null) {
+        updates.multiplier = multiplier;
+      }
+
+      const updated = DatabaseManager.setLevelConfig(guild.id, updates);
 
       return interaction.reply({
         embeds: [
           EmbedUtils.success(
-            'Leveling Settings Updated',
+            'Leveling Settings Updated ⚙️',
             `• **Status:** ${enabled ? '✅ Enabled' : '❌ Disabled'}\n` +
-            `• **Announcement Channel:** ${channel ? `<#${channel.id}>` : '*Current channel where member leveled up*'}`
+            `• **Announcement Channel:** ${channel ? `<#${channel.id}>` : '*Current channel where member leveled up*'}\n` +
+            `• **XP Multiplier:** \`${updated.multiplier || 1.0}x XP\``
           )
         ]
       });
@@ -129,6 +173,51 @@ module.exports = {
 
       return interaction.reply({
         embeds: [EmbedUtils.success('Reward Removed', `Removed the role reward for **Level ${level}**.`)]
+      });
+    }
+
+    if (subcommand === 'set_level') {
+      const targetUser = interaction.options.getUser('user');
+      const targetLevel = interaction.options.getInteger('level');
+
+      if (targetUser.bot) {
+        return interaction.reply({
+          content: '🤖 Cannot modify bot levels!',
+          ephemeral: true
+        });
+      }
+
+      DatabaseManager.setUserLevel(guild.id, targetUser.id, targetLevel, 0);
+      const tier = DatabaseManager.getLevelTier(targetLevel);
+
+      return interaction.reply({
+        embeds: [
+          EmbedUtils.success(
+            'Level Updated ⭐',
+            `Successfully set <@${targetUser.id}> to **Level ${targetLevel}** (${tier.badge} ${tier.name} Tier)!`
+          )
+        ]
+      });
+    }
+
+    if (subcommand === 'reset_user') {
+      const targetUser = interaction.options.getUser('user');
+      if (targetUser.bot) {
+        return interaction.reply({
+          content: '🤖 Cannot reset bots!',
+          ephemeral: true
+        });
+      }
+
+      DatabaseManager.resetUserLevel(guild.id, targetUser.id);
+
+      return interaction.reply({
+        embeds: [
+          EmbedUtils.success(
+            'User XP Reset 🔄',
+            `Successfully reset <@${targetUser.id}>'s level and XP back to **Level 0 (0 XP)**.`
+          )
+        ]
       });
     }
   }

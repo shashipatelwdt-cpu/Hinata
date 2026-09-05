@@ -60,14 +60,20 @@ const HELP_CATEGORIES = {
       },
       {
         name: '/leveling config',
-        syntax: '/leveling config enabled:<true/false> [channel:<#channel>]',
-        desc: 'Enable or disable chat XP leveling and set announcement channel.',
+        syntax: '/leveling config enabled:<true/false> [channel:<#channel>] [multiplier:<0.5-5.0>]',
+        desc: 'Enable or disable chat XP leveling, set announcement channel, and configure double XP multipliers.',
         perms: 'Manage Server'
       },
       {
         name: '/leveling reward_add',
-        syntax: '/leveling reward_add level:<X> role:<@role>',
+        syntax: '/leveling reward_add level:<X> role:<@role> | /leveling reward_remove level:<X>',
         desc: 'Configure automatic role rewards for reaching specific levels.',
+        perms: 'Manage Server'
+      },
+      {
+        name: '/leveling set_level',
+        syntax: '/leveling set_level user:<@user> level:<X> | /leveling reset_user user:<@user>',
+        desc: 'Admin controls to manually adjust or reset member XP and level.',
         perms: 'Manage Server'
       }
     ]
@@ -610,14 +616,14 @@ const HELP_CATEGORIES = {
       },
       {
         name: '/rank',
-        syntax: '/rank [user:<@user>]',
-        desc: '🎖️ Check your level, XP progress bar, total XP, and server rank.',
+        syntax: '/rank [user:<@user>] [color:<#hex/reset>]',
+        desc: '🎖️ Ultra-premium Rank Card with Tier Badges (Bronze to Immortal), custom accent colors, and milestones.',
         perms: 'Everyone'
       },
       {
         name: '/levels leaderboard',
         syntax: '/levels leaderboard | /levels rewards',
-        desc: '🏆 View the server top-10 XP leaderboard and role reward milestones.',
+        desc: '🏆 View server top-10 XP leaderboard, tier rankings, and personalized role reward roadmap.',
         perms: 'Everyone'
       }
     ]

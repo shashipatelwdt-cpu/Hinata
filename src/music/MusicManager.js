@@ -123,7 +123,12 @@ class MusicManager {
   }
 
   async initSoundCloud() {
-    if (this.scClientId) return this.scClientId;
+    if (this.scClientId) {
+      try {
+        await play.setToken({ soundcloud: { client_id: this.scClientId } }).catch(() => null);
+      } catch {}
+      return this.scClientId;
+    }
     if (this.scInitPromise) return this.scInitPromise;
 
     this.scInitPromise = (async () => {

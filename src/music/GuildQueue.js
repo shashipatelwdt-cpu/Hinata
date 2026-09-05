@@ -12,7 +12,8 @@ const {
   ActionRowBuilder, 
   ButtonBuilder, 
   ButtonStyle,
-  Routes
+  Routes,
+  PermissionFlagsBits
 } = require('discord.js');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -108,6 +109,14 @@ class GuildQueue {
     try {
       const currentVC = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
       if (!currentVC || !this.client?.rest) return;
+
+      const botMember = this.guild?.members?.me;
+      if (botMember && typeof botMember.permissions?.has === 'function') {
+        // SetVoiceChannelStatus bit is (1n << 48n) in Discord API
+        const canSetStatus = botMember.permissions.has(1n << 48n) || botMember.permissions.has(PermissionFlagsBits.ManageChannels);
+        if (!canSetStatus) return;
+      }
+
       const cleanStatus = (statusText || '').slice(0, 100);
       await this.client.rest.put(Routes.channelVoiceStatus(currentVC.id), {
         body: { status: cleanStatus }
@@ -256,13 +265,15 @@ class GuildQueue {
     const volumeLevel = Math.max(0.05, Math.min(2.0, (this.volume || 100) / 100));
 
     const commonYtDlpArgs = [
-      '--js-runtimes', 'node',
       '--no-playlist',
       '--no-check-certificates',
       '--no-warnings',
       '--prefer-free-formats',
       '--geo-bypass',
-      '--socket-timeout', '10',
+      '--socket-timeout', '6',
+      '--retries', '1',
+      '--extractor-args', 'youtube:player_client=android,web',
+      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       '--no-cache-dir'
     ];
 
@@ -275,11 +286,11 @@ class GuildQueue {
         const directStream = await play.stream(targetUrl);
         if (directStream && directStream.stream) {
           const ffmpegProc = spawn(ffmpegPath, [
-            '-i', 'pipe:0',
             '-analyzeduration', '0',
             '-probesize', '32768',
             '-fflags', '+nobuffer+flush_packets',
             '-loglevel', '0',
+            '-i', 'pipe:0',
             '-af', `volume=${volumeLevel}`,
             '-c:a', 'libopus',
             '-b:a', '160k',
@@ -314,7 +325,7 @@ class GuildQueue {
                 cleanup();
                 resolve(null);
               }
-            }, 15000);
+            }, 10000);
 
             passThrough.once('data', (chunk) => {
               if (!isResolved) {
@@ -356,7 +367,7 @@ class GuildQueue {
     };
 
     // Method A: Pipe from yt-dlp through native FFmpeg libopus OggOpus
-    const streamWithPipeline = async (target) => {
+    const streamWithPipeline = async (target, timeoutMs = 7000) => {
       if (!ytDlpPath || !target) return null;
       return new Promise((resolve) => {
         let isResolved = false;
@@ -373,7 +384,7 @@ class GuildQueue {
             target,
             ...commonYtDlpArgs,
             '-o', '-',
-            '-f', '251/140/ba/b/bestaudio',
+            '-f', 'ba/b',
             '--limit-rate', '50M',
             '--buffer-size', '64K'
           ], {
@@ -381,11 +392,11 @@ class GuildQueue {
           });
 
           ffmpegProc = spawn(ffmpegPath, [
-            '-i', 'pipe:0',
             '-analyzeduration', '0',
             '-probesize', '32768',
             '-fflags', '+nobuffer+flush_packets',
             '-loglevel', '0',
+            '-i', 'pipe:0',
             '-af', `volume=${volumeLevel}`,
             '-c:a', 'libopus',
             '-b:a', '160k',
@@ -413,7 +424,7 @@ class GuildQueue {
               cleanup();
               resolve(null);
             }
-          }, 20000);
+          }, timeoutMs);
 
           passThrough.once('data', (chunk) => {
             if (!isResolved) {
@@ -466,7 +477,7 @@ class GuildQueue {
     };
 
     // Method B: Direct extracted media URL through native FFmpeg libopus OggOpus
-    const streamWithExtractedUrl = async (target) => {
+    const streamWithExtractedUrl = async (target, timeoutMs = 6000) => {
       if (!ytDlpPath || !target) return null;
       return new Promise((resolve) => {
         let isResolved = false;
@@ -482,15 +493,15 @@ class GuildQueue {
             cleanup();
             resolve(null);
           }
-        }, 20000);
+        }, timeoutMs);
 
         try {
           execFile(ytDlpPath, [
             target,
             ...commonYtDlpArgs,
             '-g',
-            '-f', '251/140/ba/b/bestaudio'
-          ], { timeout: 12000 }, (err, stdout) => {
+            '-f', 'ba/b'
+          ], { timeout: timeoutMs }, (err, stdout) => {
             if (err || !stdout || isResolved) {
               if (!isResolved) {
                 isResolved = true;
@@ -513,14 +524,14 @@ class GuildQueue {
             }
 
             ffmpegProc = spawn(ffmpegPath, [
-              '-reconnect', '1',
-              '-reconnect_streamed', '1',
-              '-reconnect_delay_max', '4',
-              '-i', mediaUrl,
               '-analyzeduration', '0',
               '-probesize', '32768',
               '-fflags', '+nobuffer+flush_packets',
+              '-reconnect', '1',
+              '-reconnect_streamed', '1',
+              '-reconnect_delay_max', '4',
               '-loglevel', '0',
+              '-i', mediaUrl,
               '-af', `volume=${volumeLevel}`,
               '-c:a', 'libopus',
               '-b:a', '160k',
@@ -585,46 +596,59 @@ class GuildQueue {
       }
     }
 
-    // 1. Direct song URL with yt-dlp + FFmpeg libopus pipe
+    // 1. Direct song URL with yt-dlp + FFmpeg libopus pipe (quick 7s check)
     if (song.url && (song.url.startsWith('http://') || song.url.startsWith('https://'))) {
-      const res = await streamWithPipeline(song.url);
+      const res = await streamWithPipeline(song.url, 7000);
       if (res && res.stream) {
         this.currentProcess = res.process;
         return res;
       }
-
-      // Tier 2: Extracted CDN Media URL via yt-dlp -g
-      const resUrl = await streamWithExtractedUrl(song.url);
-      if (resUrl && resUrl.stream) {
-        this.currentProcess = resUrl.process;
-        return resUrl;
-      }
     }
 
-    // 3. Search-based yt-dlp stream (resolves tracks if URL was blocked or invalid)
+    // 2. ULTRA-FAST SOUNDCLOUD FALLBACK (Guarantees instant playback if YouTube blocks or throttles)
     const cleanTitle = cleanSongTitle(song.title || '');
     if (cleanTitle) {
-      const searchTarget = `ytsearch1:${cleanTitle} ${song.author || ''}`.trim();
-      const res = await streamWithPipeline(searchTarget);
-      if (res && res.stream) {
-        this.currentProcess = res.process;
-        return res;
+      try {
+        if (this.manager && typeof this.manager.initSoundCloud === 'function') {
+          await this.manager.initSoundCloud();
+        }
+        const scQuery = `${cleanTitle} ${song.author || ''}`.trim();
+        const scResults = await play.search(scQuery, { source: { soundcloud: 'tracks' }, limit: 1 }).catch(() => null);
+        if (scResults && scResults.length > 0 && scResults[0]?.url) {
+          console.log(`[STREAM FALLBACK]: Seamlessly switching to SoundCloud track for "${song.title}"`);
+          const resSc = await streamWithPlayDl(scResults[0].url);
+          if (resSc && resSc.stream) {
+            this.currentProcess = resSc.process;
+            return resSc;
+          }
+        }
+      } catch (scErr) {
+        console.warn('[SOUNDCLOUD FALLBACK WARN]:', scErr.message);
       }
+    }
 
-      const resUrl = await streamWithExtractedUrl(searchTarget);
+    // 3. Extracted CDN Media URL via yt-dlp -g (6s timeout)
+    if (song.url && (song.url.startsWith('http://') || song.url.startsWith('https://'))) {
+      const resUrl = await streamWithExtractedUrl(song.url, 6000);
       if (resUrl && resUrl.stream) {
         this.currentProcess = resUrl.process;
         return resUrl;
       }
     }
 
-    // 4. SoundCloud fallback via yt-dlp
+    // 4. Cleaned Title Search Fallback via yt-dlp (7s timeout)
     if (cleanTitle) {
-      const scTarget = song.url && song.url.includes('soundcloud.com') ? song.url : `scsearch1:${cleanTitle} ${song.author || ''}`.trim();
-      const resSc = await streamWithPipeline(scTarget);
-      if (resSc && resSc.stream) {
-        this.currentProcess = resSc.process;
-        return resSc;
+      const searchTarget = `ytsearch1:${cleanTitle} ${song.author || ''}`.trim();
+      const res = await streamWithPipeline(searchTarget, 7000);
+      if (res && res.stream) {
+        this.currentProcess = res.process;
+        return res;
+      }
+
+      const resUrl = await streamWithExtractedUrl(searchTarget, 6000);
+      if (resUrl && resUrl.stream) {
+        this.currentProcess = resUrl.process;
+        return resUrl;
       }
     }
 

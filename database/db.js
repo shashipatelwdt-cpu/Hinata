@@ -914,8 +914,73 @@ class DatabaseManager {
     const neededXp = this.getXpNeededForLevel(user.level);
     return {
       ...user,
-      neededXp
+      neededXp,
+      tier: this.getLevelTier(user.level)
     };
+  }
+
+  static getLevelTier(level = 0) {
+    if (level >= 100) return { name: 'Immortal', badge: '⚡', color: '#FFD700', minLevel: 100 };
+    if (level >= 75) return { name: 'Grandmaster', badge: '🌌', color: '#9B59B6', minLevel: 75 };
+    if (level >= 50) return { name: 'Master', badge: '👑', color: '#E91E63', minLevel: 50 };
+    if (level >= 30) return { name: 'Diamond', badge: '🔮', color: '#00D2FF', minLevel: 30 };
+    if (level >= 20) return { name: 'Platinum', badge: '💎', color: '#2ECC71', minLevel: 20 };
+    if (level >= 10) return { name: 'Gold', badge: '🥇', color: '#F1C40F', minLevel: 10 };
+    if (level >= 5) return { name: 'Silver', badge: '🥈', color: '#BDC3C7', minLevel: 5 };
+    return { name: 'Bronze', badge: '🥉', color: '#CD7F32', minLevel: 0 };
+  }
+
+  static setUserRankTheme(guildId, userId, theme = {}) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users[userId]) {
+      this.getUserLevel(guildId, userId);
+    }
+    data.users[userId].theme = {
+      ...(data.users[userId].theme || {}),
+      ...theme
+    };
+    saveDatabase();
+    return data.users[userId].theme;
+  }
+
+  static getUserRankTheme(guildId, userId) {
+    const data = this.getLevelGuildData(guildId);
+    return data.users?.[userId]?.theme || {};
+  }
+
+  static setUserLevel(guildId, userId, targetLevel, targetXp = 0) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users[userId]) {
+      this.getUserLevel(guildId, userId);
+    }
+    const user = data.users[userId];
+    user.level = Math.max(0, parseInt(targetLevel) || 0);
+    user.xp = Math.max(0, parseInt(targetXp) || 0);
+    
+    // Recalculate total XP approximately
+    let calculatedTotal = user.xp;
+    for (let l = 0; l < user.level; l++) {
+      calculatedTotal += this.getXpNeededForLevel(l);
+    }
+    user.totalXp = calculatedTotal;
+    saveDatabase();
+    return user;
+  }
+
+  static resetUserLevel(guildId, userId) {
+    const data = this.getLevelGuildData(guildId);
+    if (data.users && data.users[userId]) {
+      data.users[userId] = {
+        xp: 0,
+        level: 0,
+        totalXp: 0,
+        lastXpAt: 0,
+        theme: data.users[userId].theme || {}
+      };
+      saveDatabase();
+      return true;
+    }
+    return false;
   }
 
   static addXp(guildId, userId, amount = 20) {
@@ -929,8 +994,11 @@ class DatabaseManager {
       };
     }
     const user = data.users[userId];
-    user.xp = (user.xp || 0) + amount;
-    user.totalXp = (user.totalXp || 0) + amount;
+    const multiplier = Math.max(0.1, parseFloat(data.config?.multiplier) || 1.0);
+    const finalAmount = Math.max(1, Math.round(amount * multiplier));
+
+    user.xp = (user.xp || 0) + finalAmount;
+    user.totalXp = (user.totalXp || 0) + finalAmount;
     user.lastXpAt = Date.now();
 
     let leveledUp = false;
@@ -952,7 +1020,10 @@ class DatabaseManager {
       newLevel: user.level,
       currentXp: user.xp,
       neededXp: needed,
-      totalXp: user.totalXp
+      totalXp: user.totalXp,
+      earnedXp: finalAmount,
+      tier: this.getLevelTier(user.level),
+      oldTier: this.getLevelTier(oldLevel)
     };
   }
 
@@ -964,7 +1035,8 @@ class DatabaseManager {
         userId,
         level: stats.level || 0,
         xp: stats.xp || 0,
-        totalXp: stats.totalXp || 0
+        totalXp: stats.totalXp || 0,
+        tier: this.getLevelTier(stats.level || 0)
       }))
       .sort((a, b) => (b.totalXp - a.totalXp) || (b.level - a.level))
       .slice(0, limit);

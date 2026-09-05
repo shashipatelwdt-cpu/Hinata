@@ -5,7 +5,7 @@ const config = require('../../../config.json');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('levels')
-    .setDescription('🏆 View server XP leaderboard and level milestones')
+    .setDescription('🏆 View server XP leaderboard, rankings, and level milestones')
     .addSubcommand(sub =>
       sub
         .setName('leaderboard')
@@ -14,7 +14,7 @@ module.exports = {
     .addSubcommand(sub =>
       sub
         .setName('rewards')
-        .setDescription('🎁 Show all role rewards unlocked at each level')
+        .setDescription('🎁 Show all role rewards and your personal roadmap')
     ),
 
   async execute(interaction) {
@@ -35,21 +35,40 @@ module.exports = {
       const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
       const lines = topUsers.map((entry, index) => {
         const medal = medals[index] || `\`#${index + 1}\``;
-        return `${medal} <@${entry.userId}> — **Level ${entry.level}** (\`${entry.totalXp.toLocaleString()} Total XP\`)`;
+        const tier = entry.tier || DatabaseManager.getLevelTier(entry.level);
+        return `${medal} <@${entry.userId}> — **Level ${entry.level}** (\`${entry.totalXp.toLocaleString()} XP\`) • ${tier.badge} *${tier.name}*`;
       });
 
+      // User's own standing
+      const callerData = DatabaseManager.getUserLevel(guild.id, interaction.user.id);
+      const callerRank = DatabaseManager.getUserRank(guild.id, interaction.user.id);
+      const callerTier = callerData.tier || DatabaseManager.getLevelTier(callerData.level);
+
+      const totalRanked = Object.keys(guildLevelData.users || {}).length || 1;
+      const totalGuildXp = Object.values(guildLevelData.users || {}).reduce((sum, u) => sum + (u.totalXp || 0), 0);
+
       const embed = new EmbedBuilder()
-        .setTitle(`🏆 ${guild.name} • XP Leaderboard`)
-        .setDescription(lines.join('\n\n'))
+        .setAuthor({ name: `${guild.name} • XP Leaderboard`, iconURL: guild.iconURL() || undefined })
+        .setTitle('🏆 Top Active Members & Tier Rankings')
+        .setDescription(
+          lines.join('\n\n') +
+          `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📌 **Your Standing:** \`#${callerRank}\` of \`${totalRanked}\` • **Level ${callerData.level}** (${callerTier.badge} ${callerTier.name}) • \`${callerData.totalXp.toLocaleString()} Total XP\``
+        )
+        .addFields(
+          { name: '👥 Total Ranked Members', value: `\`${totalRanked.toLocaleString()}\``, inline: true },
+          { name: '✨ Total Server XP', value: `\`${totalGuildXp.toLocaleString()} XP\``, inline: true },
+          { name: '⚡ Server Multiplier', value: `\`${guildLevelData.config?.multiplier || '1.0'}x XP\``, inline: true }
+        )
         .setColor(config.embedColors?.primary || '#5865F2')
-        .setFooter({ text: 'Tip: Chat actively to climb the leaderboard! (60s cooldown)' })
+        .setFooter({ text: 'Earn 15-25 XP per chat message (60s cooldown) • Hinata Leveling' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
     }
 
     if (subcommand === 'rewards') {
-      const rewards = guildLevelData.config.roleRewards || {};
+      const rewards = guildLevelData.config?.roleRewards || {};
       const entries = Object.entries(rewards);
 
       if (entries.length === 0) {
@@ -61,15 +80,28 @@ module.exports = {
 
       // Sort by level ascending
       entries.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
-      const lines = entries.map(([lvl, roleId]) => {
-        return `• **Level ${lvl}** ➔ <@&${roleId}>`;
+      const callerData = DatabaseManager.getUserLevel(guild.id, interaction.user.id);
+
+      const lines = entries.map(([lvlStr, roleId]) => {
+        const lvl = parseInt(lvlStr);
+        const tier = DatabaseManager.getLevelTier(lvl);
+        const isUnlocked = callerData.level >= lvl;
+        const statusIcon = isUnlocked ? '✅' : '🔒';
+        const statusText = isUnlocked ? '*Claimed*' : `*(${lvl - callerData.level} level${lvl - callerData.level === 1 ? '' : 's'} to go)*`;
+        return `${statusIcon} **Level ${lvl}** (${tier.badge} ${tier.name}) ➔ <@&${roleId}> ${statusText}`;
       });
 
       const embed = new EmbedBuilder()
-        .setTitle(`🎁 ${guild.name} • Level Role Rewards`)
-        .setDescription(`Unlock these exclusive roles automatically as you level up:\n\n${lines.join('\n')}`)
+        .setAuthor({ name: `${guild.name} • Level Milestones`, iconURL: guild.iconURL() || undefined })
+        .setTitle('🎁 Level Role Rewards & Roadmap')
+        .setDescription(
+          `Unlock special exclusive roles automatically as you level up in chat:\n\n` +
+          lines.join('\n\n') +
+          `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `📌 **Your Current Level:** \`Level ${callerData.level}\` (${callerData.tier?.badge || '🥉'} ${callerData.tier?.name || 'Bronze'})`
+        )
         .setColor(config.embedColors?.success || '#57F287')
-        .setFooter({ text: 'Hinata Leveling Engine' })
+        .setFooter({ text: 'Hinata Leveling Engine • Keep chatting to unlock next roles!' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });

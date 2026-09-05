@@ -241,7 +241,7 @@ module.exports = {
               const botMember = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
               if (botMember && botMember.permissions.has(PermissionFlagsBits.ManageRoles) && botMember.roles.highest.position > rewardRole.position) {
                 await member.roles.add(rewardRole, `Hinata Level Up Reward (Level ${xpResult.newLevel})`).catch(() => null);
-                roleRewardText = `\n🎁 **Role Unlocked:** <@&${rewardRole.id}>!`;
+                roleRewardText = `\n\n🎁 **Role Reward Unlocked:** <@&${rewardRole.id}>!`;
               }
             }
           }
@@ -253,11 +253,33 @@ module.exports = {
             if (customCh && customCh.isTextBased()) targetChannel = customCh;
           }
 
+          const tier = xpResult.tier || DatabaseManager.getLevelTier(xpResult.newLevel);
+          const oldTier = xpResult.oldTier || DatabaseManager.getLevelTier(xpResult.oldLevel);
+          const isTierUp = tier.name !== oldTier.name;
+          const tierPromotionText = isTierUp ? `\n🌟 **TIER PROMOTION:** Advanced to **${tier.badge} ${tier.name} Tier**!` : '';
+
+          // Add celebration reactions to message
+          await message.react('⭐').catch(() => null);
+          if (xpResult.newLevel % 5 === 0) await message.react('🎉').catch(() => null);
+          if (xpResult.newLevel % 10 === 0) await message.react('👑').catch(() => null);
+
           const levelEmbed = new EmbedBuilder()
-            .setTitle('⭐ LEVEL UP! ⭐')
-            .setDescription(`🎉 GG <@${message.author.id}>, you just advanced to **Level ${xpResult.newLevel}**!${roleRewardText}`)
-            .setColor(config.embedColors?.success || '#57F287')
-            .setFooter({ text: `Total XP: ${xpResult.totalXp.toLocaleString()} • Next Level: ${xpResult.neededXp.toLocaleString()} XP` })
+            .setAuthor({ 
+              name: `${message.author.username} Leveled Up!`, 
+              iconURL: message.author.displayAvatarURL({ dynamic: true }) 
+            })
+            .setTitle(`${tier.badge} LEVEL UP! • LEVEL ${xpResult.newLevel}`)
+            .setDescription(
+              `🎉 Congratulations <@${message.author.id}>! Your server activity paid off!\n\n` +
+              `**⭐ Current Level:** \`Level ${xpResult.newLevel}\` (${tier.badge} **${tier.name} Tier**)` +
+              `${tierPromotionText}\n` +
+              `**✨ Total XP:** \`${xpResult.totalXp.toLocaleString()} XP\`\n` +
+              `**🎯 Next Milestone:** \`${xpResult.neededXp.toLocaleString()} XP to Level ${xpResult.newLevel + 1}\`` +
+              `${roleRewardText}`
+            )
+            .setThumbnail(message.author.displayAvatarURL({ dynamic: true, size: 256 }))
+            .setColor(tier.color || config.embedColors?.success || '#57F287')
+            .setFooter({ text: `Hinata Leveling Engine • Chat actively to climb the leaderboard!` })
             .setTimestamp();
 
           targetChannel.send({ embeds: [levelEmbed] }).catch(() => null);
