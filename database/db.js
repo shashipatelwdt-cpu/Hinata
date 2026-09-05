@@ -17,7 +17,10 @@ let store = {
   invites: {},
   invite_members: {},
   bot_meta: {},
-  playlists: {}
+  playlists: {},
+  counting: {},
+  afk: {},
+  levels: {}
 };
 
 // Load database from file
@@ -34,7 +37,10 @@ function loadDatabase() {
         invites: parsed.invites || {},
         invite_members: parsed.invite_members || {},
         bot_meta: parsed.bot_meta || {},
-        playlists: parsed.playlists || {}
+        playlists: parsed.playlists || {},
+        counting: parsed.counting || {},
+        afk: parsed.afk || {},
+        levels: parsed.levels || {}
       };
     } else {
       saveDatabase();
@@ -708,6 +714,270 @@ class DatabaseManager {
     pl.updated_at = new Date().toISOString();
     saveDatabase();
     return true;
+  }
+
+  // --- COUNTING SYSTEM HELPERS ---
+  static getCounting(guildId) {
+    if (!store.counting) store.counting = {};
+    if (!store.counting[guildId]) {
+      store.counting[guildId] = {
+        channelId: null,
+        currentCount: 0,
+        lastUserId: null,
+        highScore: 0,
+        highScoreDate: null,
+        totalCounts: 0,
+        userStats: {}
+      };
+      saveDatabase();
+    }
+    return store.counting[guildId];
+  }
+
+  static setCounting(guildId, data) {
+    const current = this.getCounting(guildId);
+    store.counting[guildId] = { ...current, ...data };
+    saveDatabase();
+    return store.counting[guildId];
+  }
+
+  static recordCount(guildId, userId, number) {
+    const data = this.getCounting(guildId);
+    data.currentCount = number;
+    data.lastUserId = userId;
+    data.totalCounts = (data.totalCounts || 0) + 1;
+
+    let isNewHighScore = false;
+    if (number > (data.highScore || 0)) {
+      data.highScore = number;
+      data.highScoreDate = new Date().toISOString();
+      isNewHighScore = true;
+    }
+
+    if (!data.userStats) data.userStats = {};
+    if (!data.userStats[userId]) {
+      data.userStats[userId] = { counts: 0, fails: 0, lastCountAt: null };
+    }
+    data.userStats[userId].counts = (data.userStats[userId].counts || 0) + 1;
+    data.userStats[userId].lastCountAt = new Date().toISOString();
+
+    saveDatabase();
+    return { data, isNewHighScore };
+  }
+
+  static failCount(guildId, userId, reason = 'Wrong number') {
+    const data = this.getCounting(guildId);
+    const brokenAt = data.currentCount;
+    const previousHighScore = data.highScore || 0;
+
+    data.currentCount = 0;
+    data.lastUserId = null;
+
+    if (!data.userStats) data.userStats = {};
+    if (!data.userStats[userId]) {
+      data.userStats[userId] = { counts: 0, fails: 0, lastCountAt: null };
+    }
+    data.userStats[userId].fails = (data.userStats[userId].fails || 0) + 1;
+
+    saveDatabase();
+    return { brokenAt, previousHighScore, reason };
+  }
+
+  static getCountingLeaderboard(guildId, limit = 10) {
+    const data = this.getCounting(guildId);
+    if (!data.userStats) return [];
+    return Object.entries(data.userStats)
+      .map(([userId, stats]) => ({
+        userId,
+        counts: stats.counts || 0,
+        fails: stats.fails || 0,
+        lastCountAt: stats.lastCountAt
+      }))
+      .sort((a, b) => b.counts - a.counts)
+      .slice(0, limit);
+  }
+
+  // --- PROFESSIONAL AFK SYSTEM HELPERS ---
+  static getAfk(guildId, userId) {
+    if (!store.afk) store.afk = {};
+    if (!store.afk[guildId]) return null;
+    return store.afk[guildId][userId] || null;
+  }
+
+  static setAfk(guildId, userId, afkData) {
+    if (!store.afk) store.afk = {};
+    if (!store.afk[guildId]) store.afk[guildId] = {};
+    store.afk[guildId][userId] = {
+      reason: afkData.reason || 'AFK',
+      timestamp: afkData.timestamp || Date.now(),
+      oldNick: afkData.oldNick || null,
+      mentions: []
+    };
+    saveDatabase();
+    return store.afk[guildId][userId];
+  }
+
+  static removeAfk(guildId, userId) {
+    if (!store.afk || !store.afk[guildId] || !store.afk[guildId][userId]) return null;
+    const removed = store.afk[guildId][userId];
+    delete store.afk[guildId][userId];
+    saveDatabase();
+    return removed;
+  }
+
+  static addAfkMention(guildId, userId, mentionData) {
+    if (!store.afk || !store.afk[guildId] || !store.afk[guildId][userId]) return false;
+    const record = store.afk[guildId][userId];
+    if (!Array.isArray(record.mentions)) record.mentions = [];
+    record.mentions.push({
+      authorId: mentionData.authorId,
+      authorTag: mentionData.authorTag,
+      content: mentionData.content ? mentionData.content.slice(0, 200) : '',
+      channelId: mentionData.channelId,
+      messageId: mentionData.messageId,
+      timestamp: Date.now()
+    });
+    if (record.mentions.length > 15) {
+      record.mentions.shift();
+    }
+    saveDatabase();
+    return true;
+  }
+
+  static getGuildAfks(guildId) {
+    if (!store.afk || !store.afk[guildId]) return [];
+    return Object.entries(store.afk[guildId]).map(([userId, data]) => ({
+      userId,
+      ...data
+    }));
+  }
+
+  // --- PROFESSIONAL LEVEL & XP SYSTEM HELPERS ---
+  static getXpNeededForLevel(level) {
+    const lvl = Math.max(0, parseInt(level) || 0);
+    return 5 * (lvl * lvl) + 50 * lvl + 100;
+  }
+
+  static getLevelGuildData(guildId) {
+    if (!store.levels) store.levels = {};
+    if (!store.levels[guildId]) {
+      store.levels[guildId] = {
+        config: {
+          enabled: true,
+          channelId: null,
+          roleRewards: {}
+        },
+        users: {}
+      };
+      saveDatabase();
+    }
+    return store.levels[guildId];
+  }
+
+  static setLevelConfig(guildId, configUpdates) {
+    const data = this.getLevelGuildData(guildId);
+    data.config = { ...data.config, ...configUpdates };
+    saveDatabase();
+    return data.config;
+  }
+
+  static addLevelRoleReward(guildId, level, roleId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.config.roleRewards) data.config.roleRewards = {};
+    data.config.roleRewards[String(level)] = roleId;
+    saveDatabase();
+    return data.config.roleRewards;
+  }
+
+  static removeLevelRoleReward(guildId, level) {
+    const data = this.getLevelGuildData(guildId);
+    if (data.config.roleRewards && data.config.roleRewards[String(level)]) {
+      delete data.config.roleRewards[String(level)];
+      saveDatabase();
+      return true;
+    }
+    return false;
+  }
+
+  static getUserLevel(guildId, userId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users[userId]) {
+      data.users[userId] = {
+        xp: 0,
+        level: 0,
+        totalXp: 0,
+        lastXpAt: 0
+      };
+      saveDatabase();
+    }
+    const user = data.users[userId];
+    const neededXp = this.getXpNeededForLevel(user.level);
+    return {
+      ...user,
+      neededXp
+    };
+  }
+
+  static addXp(guildId, userId, amount = 20) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users[userId]) {
+      data.users[userId] = {
+        xp: 0,
+        level: 0,
+        totalXp: 0,
+        lastXpAt: 0
+      };
+    }
+    const user = data.users[userId];
+    user.xp = (user.xp || 0) + amount;
+    user.totalXp = (user.totalXp || 0) + amount;
+    user.lastXpAt = Date.now();
+
+    let leveledUp = false;
+    let oldLevel = user.level || 0;
+    let needed = this.getXpNeededForLevel(user.level);
+
+    while (user.xp >= needed) {
+      user.xp -= needed;
+      user.level += 1;
+      leveledUp = true;
+      needed = this.getXpNeededForLevel(user.level);
+    }
+
+    saveDatabase();
+
+    return {
+      leveledUp,
+      oldLevel,
+      newLevel: user.level,
+      currentXp: user.xp,
+      neededXp: needed,
+      totalXp: user.totalXp
+    };
+  }
+
+  static getLevelLeaderboard(guildId, limit = 10) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users) return [];
+    return Object.entries(data.users)
+      .map(([userId, stats]) => ({
+        userId,
+        level: stats.level || 0,
+        xp: stats.xp || 0,
+        totalXp: stats.totalXp || 0
+      }))
+      .sort((a, b) => (b.totalXp - a.totalXp) || (b.level - a.level))
+      .slice(0, limit);
+  }
+
+  static getUserRank(guildId, userId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users) return 1;
+    const sorted = Object.entries(data.users)
+      .map(([id, stats]) => ({ id, totalXp: stats.totalXp || 0 }))
+      .sort((a, b) => b.totalXp - a.totalXp);
+    const index = sorted.findIndex(item => item.id === userId);
+    return index !== -1 ? index + 1 : sorted.length + 1;
   }
 }
 

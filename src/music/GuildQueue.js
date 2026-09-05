@@ -11,7 +11,8 @@ const {
   EmbedBuilder, 
   ActionRowBuilder, 
   ButtonBuilder, 
-  ButtonStyle 
+  ButtonStyle,
+  Routes
 } = require('discord.js');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -87,6 +88,9 @@ class GuildQueue {
     if (this.connection && typeof this.connection.subscribe === 'function') {
       this.connection.subscribe(this.player);
     }
+    this.client = this.guild?.client;
+    this.lastPlayedSong = null;
+    this.isFetchingAutoplay = false;
     this.consecutiveErrors = 0;
     this.isManuallySkipped = false;
     this.setupListeners();
@@ -96,6 +100,60 @@ class GuildQueue {
       const nonBots = this.voiceChannel.members.filter(m => !m.user.bot);
       if (nonBots.size === 0) {
         this.startEmptyChannelTimer();
+      }
+    }
+  }
+
+  async setVoiceStatus(statusText) {
+    try {
+      const currentVC = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
+      if (!currentVC || !this.client?.rest) return;
+      const cleanStatus = (statusText || '').slice(0, 100);
+      await this.client.rest.put(Routes.channelVoiceStatus(currentVC.id), {
+        body: { status: cleanStatus }
+      }).catch(() => null);
+    } catch (e) {}
+  }
+
+  async clearVoiceStatus() {
+    try {
+      const currentVC = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
+      if (!currentVC || !this.client?.rest) return;
+      await this.client.rest.put(Routes.channelVoiceStatus(currentVC.id), {
+        body: { status: '' }
+      }).catch(() => null);
+    } catch (e) {}
+  }
+
+  async checkAutoplayPrefetch() {
+    if (!this.autoplay || this.isFetchingAutoplay) return;
+    if (this.songs.length < 2 && (this.currentSong || this.lastPlayedSong)) {
+      this.isFetchingAutoplay = true;
+      try {
+        const seedSong = this.songs[this.songs.length - 1] || this.currentSong || this.lastPlayedSong;
+        const queuedUrls = this.songs.map(s => s.url);
+        const recSong = await this.manager.getRecommendations(seedSong, Array.from(this.playedHistory), queuedUrls);
+        if (recSong) {
+          const alreadyQueued = this.songs.some(s => s.url === recSong.url || s.title.toLowerCase() === recSong.title.toLowerCase());
+          if (!alreadyQueued && (!this.currentSong || this.currentSong.url !== recSong.url)) {
+            this.songs.push(recSong);
+            if (this.textChannel) {
+              this.textChannel.send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle('📻 Smart Autoplay • Matching Your Taste')
+                    .setDescription(`Upcoming next track based on **${seedSong.title}**:\n**[${recSong.title}](${recSong.url})**`)
+                    .setColor(config.embedColors?.primary || '#5865F2')
+                    .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'Music'}` })
+                ]
+              }).then(m => setTimeout(() => m.delete().catch(() => null), 8000)).catch(() => null);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[AUTOPLAY PREFETCH ERROR]:', e.message);
+      } finally {
+        this.isFetchingAutoplay = false;
       }
     }
   }
@@ -603,35 +661,33 @@ class GuildQueue {
     }
 
     // 2. If queue is empty, trigger Smart Autoplay / Radio (Spotify-like taste match)
-    if (this.songs.length === 0 && this.autoplay && this.currentSong) {
-      if ((this.consecutiveErrors || 0) >= 3) {
-        console.warn('[AUTOPLAY PAUSED]: Too many errors, skipping autoplay recommendation.');
-      } else {
-        const prevSong = this.currentSong;
-        try {
-          const queuedUrls = this.songs.map(s => s.url);
-          const recSong = await this.manager.getRecommendations(prevSong, Array.from(this.playedHistory), queuedUrls);
-          if (recSong) {
-            this.songs.push(recSong);
-            if (this.textChannel) {
-              this.textChannel.send({
-                embeds: [
-                  new EmbedBuilder()
-                    .setTitle('📻 Smart Autoplay • Matching Your Taste')
-                    .setDescription(`Auto-queueing next track based on **${prevSong.title}**:\n**[${recSong.title}](${recSong.url})**`)
-                    .setColor(config.embedColors?.primary || '#5865F2')
-                    .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'Music'}` })
-                ]
-              }).then(m => setTimeout(() => m.delete().catch(() => null), 9000)).catch(() => null);
-            }
+    if (this.songs.length === 0 && this.autoplay && (this.currentSong || this.lastPlayedSong)) {
+      const prevSong = this.currentSong || this.lastPlayedSong;
+      try {
+        const queuedUrls = this.songs.map(s => s.url);
+        const recSong = await this.manager.getRecommendations(prevSong, Array.from(this.playedHistory), queuedUrls);
+        if (recSong) {
+          this.songs.push(recSong);
+          this.consecutiveErrors = 0;
+          if (this.textChannel) {
+            this.textChannel.send({
+              embeds: [
+                new EmbedBuilder()
+                  .setTitle('📻 Smart Autoplay • Matching Your Taste')
+                  .setDescription(`Auto-queueing next track based on **${prevSong.title}**:\n**[${recSong.title}](${recSong.url})**`)
+                  .setColor(config.embedColors?.primary || '#5865F2')
+                  .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'Music'}` })
+              ]
+            }).then(m => setTimeout(() => m.delete().catch(() => null), 9000)).catch(() => null);
           }
-        } catch (recErr) {
-          console.warn('[AUTOPLAY NEXT ERROR]:', recErr.message);
         }
+      } catch (recErr) {
+        console.warn('[AUTOPLAY NEXT ERROR]:', recErr.message);
       }
     }
 
     if (this.songs.length === 0) {
+      this.clearVoiceStatus();
       this.currentSong = null;
       this.isPlaying = false;
       
@@ -709,6 +765,13 @@ class GuildQueue {
       this.isPlaying = true;
       this.isPaused = false;
       this.currentSong.startedAt = Date.now();
+      this.lastPlayedSong = this.currentSong;
+
+      // Update Discord Voice Channel Status (Song Name Under VC)
+      this.setVoiceStatus(`🎵 ${this.currentSong.title}`);
+
+      // Background pre-buffer next recommended song (like Spotify seamless radio)
+      this.checkAutoplayPrefetch().catch(() => null);
 
       await this.sendNowPlaying();
       this.startLiveTimer();
@@ -931,6 +994,7 @@ class GuildQueue {
     if (this.isPlaying && !this.isPaused) {
       this.player.pause();
       this.isPaused = true;
+      this.setVoiceStatus(`⏸️ Paused: ${this.currentSong?.title || 'Music'}`);
       return true;
     }
     return false;
@@ -940,6 +1004,7 @@ class GuildQueue {
     if (this.isPaused) {
       this.player.unpause();
       this.isPaused = false;
+      this.setVoiceStatus(`🎵 ${this.currentSong?.title || 'Music'}`);
       return true;
     }
     return false;
@@ -955,6 +1020,7 @@ class GuildQueue {
   }
 
   stop() {
+    this.clearVoiceStatus();
     this.stopLiveTimer();
     if (this.currentProcess) {
       try { this.currentProcess.kill(); } catch {}
@@ -991,12 +1057,13 @@ class GuildQueue {
     if (this.emptyTimeout) return;
 
     this.emptyTimeout = setTimeout(() => {
-      const currentChannel = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
-      if (!currentChannel) {
+      const currentVC = this.guild?.members?.me?.voice?.channel || this.voiceChannel;
+      if (!currentVC) {
         this.destroy();
         return;
       }
 
+      const currentChannel = this.guild.channels.cache.get(currentVC.id) || currentVC;
       const nonBots = currentChannel.members ? currentChannel.members.filter(m => !m.user.bot) : [];
       const humanCount = nonBots.size !== undefined ? nonBots.size : (Array.isArray(nonBots) ? nonBots.length : 0);
 
@@ -1027,6 +1094,7 @@ class GuildQueue {
   }
 
   destroy() {
+    this.clearVoiceStatus();
     this.cancelEmptyChannelTimer();
     this.stopLiveTimer();
     if (this.currentProcess) {

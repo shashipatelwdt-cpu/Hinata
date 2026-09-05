@@ -63,7 +63,35 @@ module.exports = {
             .setRequired(false)
         )
         .addBooleanOption(opt => opt.setName('dm_welcome').setDescription('Also send a welcome DM to new members?').setRequired(false))
+        .addAttachmentOption(opt => opt.setName('banner_file').setDescription('Upload an image file directly from your computer/phone').setRequired(false))
         .addStringOption(opt => opt.setName('banner_image').setDescription('Direct image URL for banner').setRequired(false))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('image')
+        .setDescription('🖼️ Set, upload, or remove the welcome embed banner image')
+        .addAttachmentOption(opt =>
+          opt
+            .setName('file')
+            .setDescription('Upload an image directly from your phone/computer')
+            .setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt
+            .setName('url')
+            .setDescription('Direct image URL link (e.g. https://.../banner.png)')
+            .setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt
+            .setName('action')
+            .setDescription('Choose whether to set or remove the banner')
+            .setRequired(false)
+            .addChoices(
+              { name: 'Set / Update Image', value: 'set' },
+              { name: 'Remove Image Banner', value: 'remove' }
+            )
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -208,7 +236,10 @@ module.exports = {
       const botRole = interaction.options.getRole('autorole_bot');
       const customMessage = interaction.options.getString('custom_message');
       const dmWelcome = interaction.options.getBoolean('dm_welcome');
+      const bannerFile = interaction.options.getAttachment('banner_file');
       const bannerImage = interaction.options.getString('banner_image');
+
+      const bannerUrl = bannerFile ? bannerFile.url : (bannerImage || welcome.banner || null);
 
       const updated = {
         enabled: true,
@@ -217,7 +248,7 @@ module.exports = {
         botRoleId: botRole ? botRole.id : welcome.botRoleId,
         message: customMessage || welcome.message,
         dmWelcome: dmWelcome !== null ? dmWelcome : welcome.dmWelcome,
-        banner: bannerImage || welcome.banner || null
+        banner: bannerUrl
       };
 
       DatabaseManager.setWelcomeConfig(interaction.guild.id, updated);
@@ -233,10 +264,54 @@ module.exports = {
         embeds: [
           EmbedUtils.success(
             'Welcome System Configured! 🎉',
-            `Welcome messages are now **ENABLED**.\n\n• **Channel:** <#${channel.id}>\n• **Member Role:** ${updated.roleId ? `<@&${updated.roleId}>` : '*None*'}\n• **Bot Role:** ${updated.botRoleId ? `<@&${updated.botRoleId}>` : '*None*'}\n• **DM Welcome:** ${updated.dmWelcome ? '✅ Enabled' : '❌ Disabled'}\n\n💡 *Tip: Check out 8+ pre-made themes using \`/welcome templates\`!*`
+            `Welcome messages are now **ENABLED**.\n\n• **Channel:** <#${channel.id}>\n• **Member Role:** ${updated.roleId ? `<@&${updated.roleId}>` : '*None*'}\n• **Bot Role:** ${updated.botRoleId ? `<@&${updated.botRoleId}>` : '*None*'}\n• **DM Welcome:** ${updated.dmWelcome ? '✅ Enabled' : '❌ Disabled'}\n• **Banner:** ${bannerUrl ? '🖼️ Custom image configured' : '*None*'}\n\n💡 *Tip: Check out 8+ pre-made themes using \`/welcome templates\`!*`
           )
         ]
       });
+    }
+
+    // 3.5 SET / REMOVE WELCOME BANNER IMAGE
+    if (subcommand === 'image') {
+      const action = interaction.options.getString('action') || 'set';
+      const file = interaction.options.getAttachment('file');
+      const url = interaction.options.getString('url');
+
+      if (action === 'remove') {
+        welcome.banner = null;
+        DatabaseManager.setWelcomeConfig(interaction.guild.id, welcome);
+        return interaction.reply({
+          embeds: [EmbedUtils.success('Banner Removed', 'The custom welcome banner image has been removed.')]
+        });
+      }
+
+      const imageUrl = file ? file.url : url;
+      if (!imageUrl) {
+        return interaction.reply({
+          embeds: [EmbedUtils.error('Missing Image', 'Please upload an image file using the `file` option or provide a direct image link using the `url` option.')],
+          ephemeral: true
+        });
+      }
+
+      // Validate URL protocol
+      if (!/^https?:\/\//i.test(imageUrl)) {
+        return interaction.reply({
+          embeds: [EmbedUtils.error('Invalid URL', 'Please provide a valid direct HTTP or HTTPS image URL.')],
+          ephemeral: true
+        });
+      }
+
+      welcome.banner = imageUrl;
+      DatabaseManager.setWelcomeConfig(interaction.guild.id, welcome);
+
+      const previewEmbed = new EmbedBuilder()
+        .setTitle('🖼️ Welcome Banner Updated!')
+        .setDescription(`Your custom welcome banner has been successfully saved and activated.\n\nUse \`/welcome preview\` or \`/welcome test\` to see it in action!`)
+        .setColor(config.embedColors?.success || '#57F287')
+        .setImage(imageUrl)
+        .setFooter({ text: 'Hinata Welcome System' })
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [previewEmbed] });
     }
 
     // 4. PREVIEW / TEST

@@ -176,8 +176,9 @@ module.exports = {
             .setFooter({ text: `User ID: ${member.user.id}` })
             .setTimestamp();
 
-          if (welcome.banner) {
-            embed.setImage(welcome.banner);
+          const bannerUrl = welcome.banner || welcome.image || null;
+          if (bannerUrl && typeof bannerUrl === 'string' && /^https?:\/\//i.test(bannerUrl)) {
+            embed.setImage(bannerUrl);
           }
 
           const row = new ActionRowBuilder().addComponents(

@@ -1,4 +1,4 @@
-const { PermissionFlagsBits } = require('discord.js');
+const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { DatabaseManager } = require('../../database/db');
 const BadWordsEngine = require('../utils/badWords');
 const ModLogger = require('../utils/logger');
@@ -8,6 +8,33 @@ const config = require('../../config.json');
 
 // In-memory spam tracker: Map<userId, Array<timestamps>>
 const spamTracker = new Map();
+
+// In-memory XP cooldown tracker: Map<guildId_userId, timestamp>
+const xpCooldownTracker = new Map();
+
+// Helper to safely evaluate counting input (numbers and basic arithmetic)
+function evaluateCountingInput(content) {
+  if (!content || typeof content !== 'string') return null;
+  const trimmed = content.trim();
+
+  // Pure integer check
+  if (/^-?\d+$/.test(trimmed)) {
+    const n = parseInt(trimmed, 10);
+    return Number.isSafeInteger(n) ? n : null;
+  }
+
+  // Safe arithmetic check: only digits, spaces, and + - * / % ( ) ^
+  if (!/^[\d\s+\-*/%()^]+$/.test(trimmed)) return null;
+
+  try {
+    const sanitized = trimmed.replace(/\^/g, '**');
+    const res = Function(`'use strict'; return (${sanitized});`)();
+    if (typeof res === 'number' && Number.isFinite(res) && Number.isSafeInteger(Math.round(res))) {
+      return Math.round(res);
+    }
+  } catch {}
+  return null;
+}
 
 module.exports = {
   name: 'messageCreate',
@@ -32,6 +59,211 @@ module.exports = {
 
     const member = message.member;
     if (!member) return;
+
+    // ==========================================
+    // 1. COUNTING GAME SYSTEM
+    // ==========================================
+    const counting = DatabaseManager.getCounting(message.guild.id);
+    if (counting && counting.channelId && message.channel.id === counting.channelId) {
+      const parsedNumber = evaluateCountingInput(message.content);
+      if (parsedNumber !== null) {
+        const expected = (counting.currentCount || 0) + 1;
+
+        // Anti-Double Count Check
+        if (counting.lastUserId === message.author.id) {
+          await message.react('❌').catch(() => null);
+          const failResult = DatabaseManager.failCount(message.guild.id, message.author.id, 'Double counting');
+          
+          const failEmbed = new EmbedBuilder()
+            .setTitle('💥 Count Ruined!')
+            .setDescription(
+              `❌ <@${message.author.id}> ruined the count at **${failResult.brokenAt}**!\n` +
+              `**Reason:** You cannot count two numbers in a row!\n` +
+              `The count has been reset to **0**. Next number is **1**!\n\n` +
+              `👑 **Server Record:** **${failResult.previousHighScore}**`
+            )
+            .setColor(config.embedColors?.danger || '#ED4245')
+            .setFooter({ text: 'Hinata Counting Engine' });
+
+          await message.channel.send({ embeds: [failEmbed] }).catch(() => null);
+          return;
+        }
+
+        // Wrong Number Check
+        if (parsedNumber !== expected) {
+          await message.react('❌').catch(() => null);
+          const failResult = DatabaseManager.failCount(message.guild.id, message.author.id, 'Wrong number');
+
+          const failEmbed = new EmbedBuilder()
+            .setTitle('💥 Count Ruined!')
+            .setDescription(
+              `❌ <@${message.author.id}> ruined the count at **${failResult.brokenAt}**!\n` +
+              `**You entered:** \`${parsedNumber}\` • **Expected:** \`${expected}\`\n` +
+              `The count has been reset to **0**. Next number is **1**!\n\n` +
+              `👑 **Server Record:** **${failResult.previousHighScore}**`
+            )
+            .setColor(config.embedColors?.danger || '#ED4245')
+            .setFooter({ text: 'Hinata Counting Engine' });
+
+          await message.channel.send({ embeds: [failEmbed] }).catch(() => null);
+          return;
+        }
+
+        // Valid Number Count!
+        const { data, isNewHighScore } = DatabaseManager.recordCount(message.guild.id, message.author.id, expected);
+
+        // Milestone reaction
+        if (expected % 100 === 0) {
+          await message.react('💯').catch(() => null);
+          await message.react('🎉').catch(() => null);
+        } else if (expected % 50 === 0) {
+          await message.react('🎉').catch(() => null);
+        } else {
+          await message.react('✅').catch(() => null);
+        }
+
+        // High Score Announcement
+        if (isNewHighScore && expected >= 5) {
+          await message.react('👑').catch(() => null);
+          if (expected === data.highScore) {
+            const hsEmbed = new EmbedBuilder()
+              .setTitle('👑 NEW COUNTING RECORD!')
+              .setDescription(`🎉 <@${message.author.id}> just set a brand new server counting record of **${expected}**! Keep going!`)
+              .setColor(config.embedColors?.success || '#57F287');
+            await message.channel.send({ embeds: [hsEmbed] }).catch(() => null);
+          }
+        }
+        return;
+      }
+    }
+
+    // ==========================================
+    // 2. PROFESSIONAL AFK SYSTEM
+    // ==========================================
+    // 2a. Return from AFK: Did message author have an active AFK status?
+    const authorAfk = DatabaseManager.getAfk(message.guild.id, message.author.id);
+    if (authorAfk && (Date.now() - authorAfk.timestamp > 3500)) {
+      const removed = DatabaseManager.removeAfk(message.guild.id, message.author.id);
+      if (removed) {
+        // Restore Nickname
+        const botMember = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
+        if (botMember && botMember.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+          if (member.id !== message.guild.ownerId && botMember.roles.highest.position > member.roles.highest.position) {
+            try {
+              await member.setNickname(removed.oldNick || null, 'Restoring nickname after AFK');
+            } catch (e) {}
+          }
+        }
+
+        const durationMs = Date.now() - (removed.timestamp || Date.now());
+        const mins = Math.floor(durationMs / 60000);
+        const timeStr = mins < 1 ? 'less than a minute' : `${mins} minute${mins === 1 ? '' : 's'}`;
+
+        const returnEmbed = new EmbedBuilder()
+          .setTitle(`👋 Welcome back, ${member.displayName || message.author.username}!`)
+          .setDescription(`I've removed your **AFK** status.\nYou were away for **${timeStr}** (${removed.reason}).`)
+          .setColor(config.embedColors?.success || '#57F287')
+          .setTimestamp();
+
+        // If they received mentions while away, display them
+        if (removed.mentions && removed.mentions.length > 0) {
+          const mentionLines = removed.mentions.slice(-5).map((m, idx) => {
+            const timeAgo = `<t:${Math.floor(m.timestamp / 1000)}:R>`;
+            return `**${idx + 1}.** By <@${m.authorId}> in <#${m.channelId}> (${timeAgo}):\n> ${m.content || '*[Embed/Attachment]*'}`;
+          });
+
+          returnEmbed.addFields({
+            name: `📬 Missed Mentions (${removed.mentions.length})`,
+            value: mentionLines.join('\n\n').slice(0, 1024)
+          });
+        }
+
+        const replyMsg = await message.channel.send({ embeds: [returnEmbed] }).catch(() => null);
+        if (replyMsg) {
+          setTimeout(() => replyMsg.delete().catch(() => null), 14000);
+        }
+      }
+    }
+
+    // 2b. Intercept Mentions: Did the message mention any AFK members?
+    if (message.mentions.users.size > 0) {
+      for (const [mentionedId, mentionedUser] of message.mentions.users) {
+        if (mentionedId !== message.author.id && !mentionedUser.bot) {
+          const targetAfk = DatabaseManager.getAfk(message.guild.id, mentionedId);
+          if (targetAfk) {
+            // Record missed mention
+            DatabaseManager.addAfkMention(message.guild.id, mentionedId, {
+              authorId: message.author.id,
+              authorTag: message.author.tag,
+              content: message.cleanContent || message.content,
+              channelId: message.channel.id,
+              messageId: message.id
+            });
+
+            const timeAgo = `<t:${Math.floor(targetAfk.timestamp / 1000)}:R>`;
+            const afkNotice = await message.channel.send({
+              embeds: [
+                new EmbedBuilder()
+                  .setDescription(`💤 **${mentionedUser.username}** is currently AFK: **${targetAfk.reason}** (${timeAgo})`)
+                  .setColor(config.embedColors?.warning || '#FEE75C')
+              ]
+            }).catch(() => null);
+
+            if (afkNotice) {
+              setTimeout(() => afkNotice.delete().catch(() => null), 8000);
+            }
+          }
+        }
+      }
+    }
+
+    // ==========================================
+    // 3. CHAT XP & LEVEL UP SYSTEM
+    // ==========================================
+    const guildLevelData = DatabaseManager.getLevelGuildData(message.guild.id);
+    if (guildLevelData && guildLevelData.config && guildLevelData.config.enabled !== false) {
+      const cooldownKey = `${message.guild.id}_${message.author.id}`;
+      const lastXpTime = xpCooldownTracker.get(cooldownKey) || 0;
+      const now = Date.now();
+
+      if (now - lastXpTime >= 60000) {
+        xpCooldownTracker.set(cooldownKey, now);
+        const earnedXp = Math.floor(Math.random() * 11) + 15; // 15 to 25 XP per message
+        const xpResult = DatabaseManager.addXp(message.guild.id, message.author.id, earnedXp);
+
+        if (xpResult.leveledUp) {
+          // Check role rewards
+          let roleRewardText = '';
+          const rewardRoleId = guildLevelData.config.roleRewards?.[String(xpResult.newLevel)];
+          if (rewardRoleId) {
+            const rewardRole = message.guild.roles.cache.get(rewardRoleId) || await message.guild.roles.fetch(rewardRoleId).catch(() => null);
+            if (rewardRole) {
+              const botMember = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
+              if (botMember && botMember.permissions.has(PermissionFlagsBits.ManageRoles) && botMember.roles.highest.position > rewardRole.position) {
+                await member.roles.add(rewardRole, `Hinata Level Up Reward (Level ${xpResult.newLevel})`).catch(() => null);
+                roleRewardText = `\n🎁 **Role Unlocked:** <@&${rewardRole.id}>!`;
+              }
+            }
+          }
+
+          // Target channel for announcement
+          let targetChannel = message.channel;
+          if (guildLevelData.config.channelId) {
+            const customCh = message.guild.channels.cache.get(guildLevelData.config.channelId) || await message.guild.channels.fetch(guildLevelData.config.channelId).catch(() => null);
+            if (customCh && customCh.isTextBased()) targetChannel = customCh;
+          }
+
+          const levelEmbed = new EmbedBuilder()
+            .setTitle('⭐ LEVEL UP! ⭐')
+            .setDescription(`🎉 GG <@${message.author.id}>, you just advanced to **Level ${xpResult.newLevel}**!${roleRewardText}`)
+            .setColor(config.embedColors?.success || '#57F287')
+            .setFooter({ text: `Total XP: ${xpResult.totalXp.toLocaleString()} • Next Level: ${xpResult.neededXp.toLocaleString()} XP` })
+            .setTimestamp();
+
+          targetChannel.send({ embeds: [levelEmbed] }).catch(() => null);
+        }
+      }
+    }
 
     const guildSettings = DatabaseManager.getGuild(message.guild.id);
     const automod = { ...config.defaultSettings.automod, ...(guildSettings.automod || {}) };

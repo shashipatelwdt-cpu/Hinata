@@ -57,6 +57,18 @@ const HELP_CATEGORIES = {
         syntax: '/serverstats status',
         desc: 'Check live update scheduler status and stats channels.',
         perms: 'Manage Channels'
+      },
+      {
+        name: '/leveling config',
+        syntax: '/leveling config enabled:<true/false> [channel:<#channel>]',
+        desc: 'Enable or disable chat XP leveling and set announcement channel.',
+        perms: 'Manage Server'
+      },
+      {
+        name: '/leveling reward_add',
+        syntax: '/leveling reward_add level:<X> role:<@role>',
+        desc: 'Configure automatic role rewards for reaching specific levels.',
+        perms: 'Manage Server'
       }
     ]
   },
@@ -582,6 +594,30 @@ const HELP_CATEGORIES = {
         name: '/help',
         syntax: '/help [command:<name>]',
         desc: 'Open this interactive command guide and documentation browser.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/counting setup',
+        syntax: '/counting setup channel:<#channel> | /counting stats | /counting leaderboard',
+        desc: '🔢 Next-gen server counting game with streaks, records, and anti-double counting.',
+        perms: 'Manage Server'
+      },
+      {
+        name: '/afk set',
+        syntax: '/afk set [reason:<text>] | /afk clear | /afk list',
+        desc: '💤 Set AFK status with auto [AFK] nickname, mention alerts & missed pings log.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/rank',
+        syntax: '/rank [user:<@user>]',
+        desc: '🎖️ Check your level, XP progress bar, total XP, and server rank.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/levels leaderboard',
+        syntax: '/levels leaderboard | /levels rewards',
+        desc: '🏆 View the server top-10 XP leaderboard and role reward milestones.',
         perms: 'Everyone'
       }
     ]

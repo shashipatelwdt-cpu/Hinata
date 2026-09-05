@@ -325,34 +325,43 @@ class MusicManager {
     // 3. Intelligent Search Fallback with yt-search
     try {
       const cleanTitle = cleanSongTitle(currentSong.title || '');
+      const cleanAuthor = (currentSong.author || '').replace(/VEVO|Official|Topic|Channel/gi, '').trim();
+      
       const searchQueries = [
-        `${currentSong.author || ''} ${cleanTitle} similar songs`.trim(),
-        `${currentSong.author || ''} songs mix`.trim(),
-        `${cleanTitle} radio`.trim()
+        `${cleanAuthor} ${cleanTitle} song`.trim(),
+        `${cleanAuthor} popular song`.trim(),
+        `${cleanTitle} song`.trim(),
+        `${cleanAuthor} latest track`.trim()
       ];
 
+      const isCompilationTitle = (t) => {
+        return /(jukebox|mashup|all songs|compilation|\b1\s*hour\b|\b2\s*hours\b|\b3\s*hours\b|playlist|mega\s*mix)/i.test(t);
+      };
+
       for (const q of searchQueries) {
-        if (!q) continue;
+        if (!q || q.length < 3) continue;
         const res = await ytSearch(q);
         if (res && res.videos && res.videos.length > 0) {
           for (const v of res.videos) {
             const vId = v.videoId;
             const sec = v.seconds || 0;
             const cleanT = cleanSongTitle(v.title).toLowerCase();
+            
             if (
               vId &&
               !historySet.has(vId.toLowerCase()) &&
               !historySet.has(cleanT) &&
               !historySet.has(v.url.toLowerCase()) &&
-              (sec === 0 || (sec >= 45 && sec <= 1200))
+              !isCompilationTitle(v.title) &&
+              (sec === 0 || (sec >= 45 && sec <= 600))
             ) {
               return {
                 title: v.title,
                 url: v.url,
-                duration: v.timestamp || 'Unknown',
-                durationSec: v.seconds || 0,
+                duration: v.timestamp || (sec > 0 ? formatDurationSec(sec) : 'Unknown'),
+                durationSec: sec,
                 thumbnail: v.thumbnail || v.image,
-                author: v.author?.name || 'YouTube',
+                author: v.author?.name || 'YouTube Music',
                 requester: { id: 'autoplay', username: 'Smart Autoplay' },
                 source: 'autoplay'
               };
