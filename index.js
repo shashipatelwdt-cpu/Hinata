@@ -466,4 +466,25 @@ http.createServer(async (req, res) => {
 </html>`);
 }).listen(PORT, () => {
   console.log(`🌐 Health check server listening on port ${PORT}`);
+
+  // 9. Automated 24/7 Keep-Alive Self-Pinger for Render (keeps free tier container awake)
+  const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL;
+  if (keepAliveUrl) {
+    const PING_INTERVAL = 8 * 60 * 1000; // 8 minutes (Render sleeps after 15m)
+    console.log(`⏱️ [24/7 KEEP-ALIVE] Auto-pinger enabled for: ${keepAliveUrl} (Every 8m)`);
+    setInterval(() => {
+      try {
+        const urlToPing = keepAliveUrl.endsWith('/') ? `${keepAliveUrl}status` : `${keepAliveUrl}/status`;
+        const clientLib = urlToPing.startsWith('https') ? require('https') : require('http');
+        clientLib.get(urlToPing, (res) => {
+          console.log(`[KEEP-ALIVE] Ping sent -> ${res.statusCode} at ${new Date().toISOString().substring(11, 19)}`);
+        }).on('error', (err) => {
+          console.warn(`[KEEP-ALIVE WARNING] Ping failed:`, err.message);
+        });
+      } catch (err) {
+        console.warn(`[KEEP-ALIVE ERROR]:`, err.message);
+      }
+    }, PING_INTERVAL);
+  }
 });
+
