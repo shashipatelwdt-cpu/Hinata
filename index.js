@@ -167,7 +167,8 @@ client.rest.on('invalidRequestWarning', (info) => {
 });
 
 client.rest.on('response', (request, response) => {
-  if (response.status >= 400) {
+  // Ignore routine 404 Not Found (e.g. deleted channels / missing stats channels)
+  if (response.status >= 400 && response.status !== 404) {
     console.warn(`[DJS REST ERROR ${response.status}] ${request.method} ${request.route}`);
   }
 });
