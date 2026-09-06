@@ -3,7 +3,7 @@ services:
     name: apex-discord-bot
     runtime: node
     plan: free
-    region: oregon
+    region: frankfurt
     buildCommand: npm install
     startCommand: npm start
     envVars:
