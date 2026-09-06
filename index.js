@@ -119,11 +119,44 @@ process.on('uncaughtExceptionMonitor', (err, origin) => {
 });
 
 // 5. Check Token & Login
-const token = process.env.DISCORD_TOKEN;
-const clientId = process.env.CLIENT_ID;
-const guildId = process.env.GUILD_ID;
+const rawToken = process.env.DISCORD_TOKEN;
+const token = rawToken ? rawToken.trim().replace(/^["']|["']$/g, '') : null;
+const rawClientId = process.env.CLIENT_ID;
+const clientId = rawClientId ? rawClientId.trim().replace(/^["']|["']$/g, '') : null;
+const rawGuildId = process.env.GUILD_ID;
+const guildId = rawGuildId ? rawGuildId.trim().replace(/^["']|["']$/g, '') : null;
+
+let lastBotError = null;
+
+client.on('debug', (info) => {
+  if (info.includes('Heartbeat') || info.includes('latency') || info.includes('Preparing keys')) return;
+  console.log('[DJS DEBUG]', info);
+});
+
+client.on('warn', (info) => {
+  console.warn('[DJS WARN]', info);
+});
+
+client.on('error', (err) => {
+  lastBotError = err.message || String(err);
+  console.error('[DJS ERROR]', err);
+});
+
+client.on('shardError', (err, shardId) => {
+  lastBotError = `Shard ${shardId}: ${err.message || String(err)}`;
+  console.error(`[SHARD ${shardId} ERROR]`, err);
+});
+
+client.on('shardDisconnect', (event, shardId) => {
+  console.warn(`[SHARD ${shardId} DISCONNECT] Code: ${event.code}, reason: ${event.reason}`);
+});
+
+client.on('shardReconnecting', (shardId) => {
+  console.log(`[SHARD ${shardId} RECONNECTING] Re-establishing connection...`);
+});
 
 if (!token || token === 'your_bot_token_here') {
+  lastBotError = 'DISCORD_TOKEN is missing or set to placeholder in environment variables.';
   console.log('\n' + '='.repeat(60));
   console.log('⚠️  ACTION REQUIRED: DISCORD BOT TOKEN MISSING');
   console.log('='.repeat(60));
@@ -134,21 +167,51 @@ if (!token || token === 'your_bot_token_here') {
   client.login(token)
     .then(async () => {
       console.log(`✅ Successfully logged in as ${client.user?.tag || 'Hinata'}!`);
+      lastBotError = null;
       if (clientId && clientId !== 'your_client_id_here') {
         await registerCommands(token, clientId, guildId);
       }
     })
     .catch((err) => {
+      lastBotError = err.message || String(err);
       console.error('[LOGIN ERROR] Failed to login to Discord:', err.message);
     });
 }
 
-// 6. Lightweight HTTP health check server (Essential for Render / Koyeb / UptimeRobot 24/7)
+// 6. Detailed HTTP Health & Diagnostic Server (Essential for Render / Koyeb / UptimeRobot 24/7)
 const http = require('http');
 const PORT = process.env.PORT || 3000;
+const WS_STATE_NAMES = ['READY', 'CONNECTING', 'RECONNECTING', 'IDLE', 'NEARLY', 'DISCONNECTED', 'WAITING_FOR_GUILDS', 'IDENTIFYING', 'RESUMING'];
+
 http.createServer((req, res) => {
+  const currentWsState = WS_STATE_NAMES[client.ws?.status] || String(client.ws?.status || 'UNKNOWN');
+  const isOnline = client.isReady();
+
+  // If JSON requested or path is /status or /json or /health
+  if (req.url === '/status' || req.url === '/json' || req.url === '/health' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    return res.end(JSON.stringify({
+      bot: client.user?.tag || 'Hinata',
+      online: isOnline,
+      wsStatus: currentWsState,
+      guildsCount: client.guilds?.cache?.size || 0,
+      tokenConfigured: Boolean(token && token !== 'your_bot_token_here'),
+      tokenLength: token ? token.length : 0,
+      tokenPrefix: token ? `${token.substring(0, 6)}...` : 'NONE',
+      clientIdConfigured: Boolean(clientId && clientId !== 'your_client_id_here'),
+      lastError: lastBotError,
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString()
+    }, null, 2));
+  }
+
+  // Default plaintext response for UptimeRobot / browsers
   res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('🎵 Apex Discord Bot is 24/7 Online and Healthy!');
+  res.end(
+    isOnline
+      ? `🟢 Hinata Discord Bot is 24/7 ONLINE as ${client.user.tag} (${client.guilds.cache.size} servers)`
+      : `🟡 Hinata Bot Web Service Running (Gateway: ${currentWsState}${lastBotError ? ` | Error: ${lastBotError}` : ''}${!token ? ' | TOKEN MISSING' : ''})`
+  );
 }).listen(PORT, () => {
   console.log(`🌐 Health check server listening on port ${PORT}`);
 });
