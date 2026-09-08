@@ -1131,6 +1131,20 @@
   "counting": {},
   "afk": {},
   "levels": {
+    "999": {
+      "config": {
+        "enabled": true,
+        "channelType": "current",
+        "channelId": null,
+        "message": "Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!",
+        "multiplier": 1,
+        "stackRoles": true,
+        "ignoredChannels": [],
+        "ignoredRoles": [],
+        "roleRewards": {}
+      },
+      "users": {}
+    },
     "1505578928494874674": {
       "config": {
         "enabled": true,
