@@ -266,43 +266,62 @@ module.exports = {
               }
             }
 
-            // 2. Arcane Level Up Announcement Message
+            // 2. Exact Level Up Announcement Message & Embed (AmariBot Style)
             const channelType = levelConfig.channelType || (levelConfig.channelId ? 'custom' : 'current');
 
             if (channelType !== 'none') {
               const roleText = unlockedRole ? `<@&${unlockedRole.id}>` : '';
-              const rawTemplate = levelConfig.message || 'GG {user}, you just leveled up to **level {level}**!';
+              const displayName = member.displayName || message.author.username;
               
-              let announcementText = rawTemplate
+              const defaultTemplate = 'Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!';
+              const rawTemplate = levelConfig.message && !levelConfig.message.startsWith('GG {user}')
+                ? levelConfig.message
+                : defaultTemplate;
+
+              let desc = rawTemplate
                 .replace(/{user}/g, `<@${message.author.id}>`)
                 .replace(/{level}/g, xpResult.newLevel)
                 .replace(/{server}/g, message.guild.name);
 
               if (rawTemplate.includes('{role}')) {
-                announcementText = announcementText.replace(/{role}/g, roleText);
+                desc = desc.replace(/{role}/g, roleText);
               } else if (unlockedRole) {
-                announcementText += ` You unlocked the ${roleText} role!`;
+                desc += `\n\n🎉 **Unlocked Role:** ${roleText}!`;
               }
+
+              const levelEmbed = new EmbedBuilder()
+                .setTitle(`${displayName} leveled up!`)
+                .setDescription(desc)
+                .setThumbnail(message.author.displayAvatarURL({ dynamic: true, size: 256 }))
+                .setColor('#F1C40F')
+                .setFooter({ 
+                  text: message.guild.name, 
+                  iconURL: message.guild.iconURL() || undefined 
+                });
+
+              const payload = {
+                content: `<@${message.author.id}>`,
+                embeds: [levelEmbed]
+              };
 
               // Subtle celebration reaction on message
               await message.react('⭐').catch(() => null);
 
-              // Dispatch announcement based on Arcane settings
+              // Dispatch announcement based on settings
               if (channelType === 'dm') {
-                await message.author.send({ content: announcementText }).catch(() => {
-                  // If DMs closed, fallback to current channel
-                  message.channel.send({ content: announcementText }).catch(() => null);
+                await message.author.send(payload).catch(() => {
+                  message.channel.send(payload).catch(() => null);
                 });
               } else if (channelType === 'custom' && levelConfig.channelId) {
                 const customCh = message.guild.channels.cache.get(levelConfig.channelId) || await message.guild.channels.fetch(levelConfig.channelId).catch(() => null);
                 if (customCh && customCh.isTextBased()) {
-                  await customCh.send({ content: announcementText }).catch(() => null);
+                  await customCh.send(payload).catch(() => null);
                 } else {
-                  await message.channel.send({ content: announcementText }).catch(() => null);
+                  await message.channel.send(payload).catch(() => null);
                 }
               } else {
                 // Default 'current' channel
-                await message.channel.send({ content: announcementText }).catch(() => null);
+                await message.channel.send(payload).catch(() => null);
               }
             }
           }

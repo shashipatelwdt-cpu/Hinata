@@ -1066,7 +1066,7 @@ class DatabaseManager {
           enabled: true,
           channelType: 'current', // 'current' | 'custom' | 'dm' | 'none'
           channelId: null,
-          message: 'GG {user}, you just leveled up to **level {level}**!',
+          message: 'Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!',
           multiplier: 1.0,
           stackRoles: true,
           ignoredChannels: [],
@@ -1080,7 +1080,7 @@ class DatabaseManager {
       const cfg = store.levels[guildId].config || {};
       if (cfg.enabled === undefined) cfg.enabled = true;
       if (!cfg.channelType) cfg.channelType = cfg.channelId ? 'custom' : 'current';
-      if (!cfg.message) cfg.message = 'GG {user}, you just leveled up to **level {level}**!';
+      if (!cfg.message) cfg.message = 'Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!';
       if (cfg.multiplier === undefined) cfg.multiplier = 1.0;
       if (cfg.stackRoles === undefined) cfg.stackRoles = true;
       if (!Array.isArray(cfg.ignoredChannels)) cfg.ignoredChannels = [];

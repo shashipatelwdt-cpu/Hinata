@@ -1136,7 +1136,7 @@
         "enabled": true,
         "channelType": "custom",
         "channelId": "1546775692543393832",
-        "message": "GG {user}, you just leveled up to **level {level}**!",
+        "message": "Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!",
         "multiplier": 1,
         "stackRoles": true,
         "ignoredChannels": [],
