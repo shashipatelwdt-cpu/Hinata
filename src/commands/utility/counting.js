@@ -5,6 +5,7 @@ const {
   ChannelType 
 } = require('discord.js');
 const { DatabaseManager } = require('../../../database/db');
+const { formatCountingLeaderboard } = require('../../utils/leaderboardFormatter');
 const EmbedUtils = require('../../utils/embeds');
 const config = require('../../../config.json');
 
@@ -145,30 +146,7 @@ module.exports = {
 
     // 3. LEADERBOARD
     if (subcommand === 'leaderboard') {
-      const topCounters = DatabaseManager.getCountingLeaderboard(guild.id, 10);
-
-      if (!topCounters || topCounters.length === 0) {
-        return interaction.reply({
-          embeds: [EmbedUtils.info('Leaderboard Empty', 'No one has counted yet in this server! Be the first in the counting channel.')],
-          ephemeral: true
-        });
-      }
-
-      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-      const lines = topCounters.map((entry, index) => {
-        const medal = medals[index] || `\`#${index + 1}\``;
-        const total = (entry.counts || 0) + (entry.fails || 0);
-        const acc = total > 0 ? Math.round((entry.counts / total) * 100) : 100;
-        return `${medal} <@${entry.userId}> — **${entry.counts}** counts (${acc}% accuracy${entry.fails > 0 ? ` • ${entry.fails} ruins` : ''})`;
-      });
-
-      const embed = new EmbedBuilder()
-        .setTitle(`🏆 ${guild.name} • Top Counters Leaderboard`)
-        .setDescription(lines.join('\n\n'))
-        .setColor(config.embedColors?.primary || '#5865F2')
-        .setFooter({ text: `Current Streak: ${counting.currentCount || 0} • All-Time High: ${counting.highScore || 0}` })
-        .setTimestamp();
-
+      const embed = formatCountingLeaderboard(guild, interaction.user, 10);
       return interaction.reply({ embeds: [embed] });
     }
 

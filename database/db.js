@@ -234,6 +234,99 @@ function saveDatabaseDirect() {
   }
 }
 
+let MongoClient = null;
+try {
+  MongoClient = require('mongodb').MongoClient;
+} catch {}
+
+let mongoClient = null;
+let mongoDb = null;
+let mongoCollection = null;
+let isMongoConnected = false;
+let mongoSyncTimer = null;
+let isMongoSyncing = false;
+let lastCloudSyncTime = 0;
+
+async function initMongoConnection() {
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  if (!uri) {
+    console.log('[DATABASE] Running in local file mode (data/database.json).');
+    console.log('💡 [DATABASE CLOUD TIP] For permanent 24/7 data persistence on Render (never lose levels/XP on deploy), set MONGODB_URI in your environment variables.');
+    return;
+  }
+  if (!MongoClient) {
+    console.warn('⚠️ [DATABASE WARNING] MONGODB_URI is provided but "mongodb" package is not installed.');
+    return;
+  }
+
+  try {
+    console.log('🌐 [DATABASE CLOUD] Connecting to MongoDB Atlas for permanent cloud storage...');
+    mongoClient = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 8000,
+      connectTimeoutMS: 10000
+    });
+    await mongoClient.connect();
+    mongoDb = mongoClient.db(process.env.MONGODB_DB_NAME || 'apex_discord_bot');
+    mongoCollection = mongoDb.collection('bot_store');
+    isMongoConnected = true;
+
+    // Load cloud document
+    const cloudDoc = await mongoCollection.findOne({ _id: 'main_store' });
+    if (cloudDoc && isValidDatabaseObject(cloudDoc.store)) {
+      applyParsedStore(cloudDoc.store);
+      lastCloudSyncTime = Date.now();
+      console.log('✅ [DATABASE CLOUD] Connected to MongoDB Atlas! Synced cloud store to memory & local mirror.');
+      saveDatabaseDirect();
+    } else {
+      // First-time sync: push existing local store to cloud
+      await mongoCollection.updateOne(
+        { _id: 'main_store' },
+        { $set: { store, updatedAt: new Date(), createdAt: new Date() } },
+        { upsert: true }
+      );
+      lastCloudSyncTime = Date.now();
+      console.log('✅ [DATABASE CLOUD] Connected to MongoDB Atlas! Initialized cloud store with existing local data.');
+    }
+
+    // Periodic 5-minute cloud safeguard sync
+    setInterval(() => {
+      if (isMongoConnected) {
+        syncToMongo().catch(() => null);
+      }
+    }, 5 * 60 * 1000);
+  } catch (err) {
+    console.error('❌ [DATABASE CLOUD ERROR] Failed to connect to MongoDB Atlas:', err.message);
+    console.log('🔄 [DATABASE RECOVERY] Continuing with local database.json storage.');
+    isMongoConnected = false;
+  }
+}
+
+function scheduleMongoSync() {
+  if (!isMongoConnected || !mongoCollection) return;
+  if (mongoSyncTimer) clearTimeout(mongoSyncTimer);
+  mongoSyncTimer = setTimeout(async () => {
+    mongoSyncTimer = null;
+    await syncToMongo();
+  }, 2500); // 2.5s debounced sync prevents MongoDB connection overload
+}
+
+async function syncToMongo() {
+  if (!isMongoConnected || !mongoCollection || isMongoSyncing) return;
+  isMongoSyncing = true;
+  try {
+    await mongoCollection.updateOne(
+      { _id: 'main_store' },
+      { $set: { store, updatedAt: new Date() } },
+      { upsert: true }
+    );
+    lastCloudSyncTime = Date.now();
+  } catch (err) {
+    console.error('⚠️ [DATABASE CLOUD SYNC ERROR]:', err.message);
+  } finally {
+    isMongoSyncing = false;
+  }
+}
+
 function saveDatabase(immediate = false) {
   if (immediate) {
     if (saveDebounceTimer) {
@@ -241,27 +334,45 @@ function saveDatabase(immediate = false) {
       saveDebounceTimer = null;
     }
     saveDatabaseDirect();
+    if (isMongoConnected) {
+      syncToMongo().catch(() => null);
+    }
   } else {
     scheduleDebouncedSave();
+    if (isMongoConnected) {
+      scheduleMongoSync();
+    }
   }
 }
 
 // Flush pending changes immediately on process termination
-function flushOnProcessExit() {
+async function flushOnProcessExit() {
   if (saveDebounceTimer) {
     clearTimeout(saveDebounceTimer);
     saveDebounceTimer = null;
-    saveDatabaseDirect();
+  }
+  saveDatabaseDirect();
+  if (isMongoConnected && mongoCollection) {
+    try {
+      await mongoCollection.updateOne(
+        { _id: 'main_store' },
+        { $set: { store, updatedAt: new Date() } },
+        { upsert: true }
+      );
+    } catch {}
   }
 }
 
-process.on('exit', flushOnProcessExit);
-process.on('beforeExit', flushOnProcessExit);
-process.on('SIGINT', () => { flushOnProcessExit(); process.exit(0); });
-process.on('SIGTERM', () => { flushOnProcessExit(); process.exit(0); });
+process.on('exit', () => { flushOnProcessExit(); });
+process.on('beforeExit', () => { flushOnProcessExit(); });
+process.on('SIGINT', async () => { await flushOnProcessExit(); process.exit(0); });
+process.on('SIGTERM', async () => { await flushOnProcessExit(); process.exit(0); });
 
-// Initialize on require
+// Initialize local store on require & connect to cloud if configured
 loadDatabase();
+initMongoConnection().catch(err => {
+  console.error('[DATABASE INIT ASYNC ERROR]:', err.message);
+});
 
 class DatabaseManager {
   // Guild Settings Helper
@@ -1391,6 +1502,32 @@ class DatabaseManager {
       .sort((a, b) => b.weeklyXp - a.weeklyXp);
     const index = sorted.findIndex(item => item.id === userId);
     return index !== -1 ? index + 1 : sorted.length + 1;
+  }
+
+  // Cloud & Backup Helpers
+  static isCloudSyncActive() {
+    return isMongoConnected;
+  }
+
+  static getCloudStatus() {
+    return {
+      connected: isMongoConnected,
+      lastSync: lastCloudSyncTime ? new Date(lastCloudSyncTime).toISOString() : null,
+      provider: isMongoConnected ? 'MongoDB Atlas (Persistent Cloud Safe)' : 'Local File (Ephemeral on Render)'
+    };
+  }
+
+  static exportDatabaseJSON() {
+    return JSON.stringify(store, null, 2);
+  }
+
+  static importDatabaseJSON(parsed) {
+    if (!isValidDatabaseObject(parsed)) {
+      throw new Error('Invalid database structure. Missing required database collections.');
+    }
+    applyParsedStore(parsed);
+    saveDatabase(true);
+    return true;
   }
 }
 

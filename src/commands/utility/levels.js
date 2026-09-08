@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { DatabaseManager } = require('../../../database/db');
+const { formatLevelLeaderboard } = require('../../utils/leaderboardFormatter');
 const config = require('../../../config.json');
 
 module.exports = {
@@ -9,7 +10,7 @@ module.exports = {
     .addSubcommand(sub =>
       sub
         .setName('leaderboard')
-        .setDescription('👑 Show the top 10 highest level members in this server')
+        .setDescription('👑 Show the top 10 highest level members in this server (AmariBot Style)')
     )
     .addSubcommand(sub =>
       sub
@@ -23,45 +24,7 @@ module.exports = {
     const guildLevelData = DatabaseManager.getLevelGuildData(guild.id);
 
     if (subcommand === 'leaderboard') {
-      const topUsers = DatabaseManager.getLevelLeaderboard(guild.id, 10);
-
-      if (!topUsers || topUsers.length === 0) {
-        return interaction.reply({
-          content: '📜 No members have earned XP in this server yet! Start chatting to gain XP.',
-          ephemeral: true
-        });
-      }
-
-      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-      const lines = topUsers.map((entry, index) => {
-        const medal = medals[index] || `\`#${index + 1}\``;
-        return `${medal} <@${entry.userId}> — **Level ${entry.level}** (\`${entry.totalXp.toLocaleString()} XP\`)`;
-      });
-
-      // User's own standing
-      const callerData = DatabaseManager.getUserLevel(guild.id, interaction.user.id);
-      const callerRank = DatabaseManager.getUserRank(guild.id, interaction.user.id);
-
-      const totalRanked = Object.keys(guildLevelData.users || {}).length || 1;
-      const totalGuildXp = Object.values(guildLevelData.users || {}).reduce((sum, u) => sum + (u.totalXp || 0), 0);
-
-      const embed = new EmbedBuilder()
-        .setAuthor({ name: `${guild.name} • XP Leaderboard`, iconURL: guild.iconURL() || undefined })
-        .setTitle('🏆 Top Active Members')
-        .setDescription(
-          lines.join('\n\n') +
-          `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `📌 **Your Rank:** \`#${callerRank}\` of \`${totalRanked}\` • **Level ${callerData.level}** • \`${callerData.totalXp.toLocaleString()} XP\``
-        )
-        .addFields(
-          { name: '👥 Ranked Members', value: `\`${totalRanked.toLocaleString()}\``, inline: true },
-          { name: '✨ Server XP', value: `\`${totalGuildXp.toLocaleString()} XP\``, inline: true },
-          { name: '⚡ Rate Multiplier', value: `\`${guildLevelData.config?.multiplier || '1.0'}x XP\``, inline: true }
-        )
-        .setColor(config.embedColors?.primary || '#5865F2')
-        .setFooter({ text: 'Earn 15-25 XP per minute chatting • Arcane Leveling' })
-        .setTimestamp();
-
+      const embed = formatLevelLeaderboard(guild, interaction.user, 10);
       return interaction.reply({ embeds: [embed] });
     }
 

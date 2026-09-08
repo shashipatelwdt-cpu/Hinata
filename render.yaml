@@ -11,5 +11,7 @@ services:
         sync: false
       - key: CLIENT_ID
         sync: false
+      - key: MONGODB_URI
+        sync: false
       - key: PORT
         value: 10000

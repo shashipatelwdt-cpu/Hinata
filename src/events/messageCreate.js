@@ -234,10 +234,22 @@ module.exports = {
         const lastXpTime = xpCooldownTracker.get(cooldownKey) || 0;
         const now = Date.now();
 
-        // Arcane 60-second cooldown per user
-        if (now - lastXpTime >= 60000) {
+        // 7-second anti-spam cooldown per user to allow natural conversational flow
+        if (now - lastXpTime >= 7000) {
+          const rawText = (message.cleanContent || message.content || '').trim();
+          // Extract words, filtering out URLs, Discord mentions, and empty tokens
+          const words = rawText
+            .split(/\s+/)
+            .filter(w => w.length > 0 && !/^https?:\/\//i.test(w) && !/^<[@#&!:]\w+:?\d*>$/.test(w));
+
+          // 1 XP per word (minimum 1 if message has text or media, capped at 50 to prevent dictionary copy-paste abuse)
+          let earnedXp = words.length;
+          if (earnedXp === 0 && (rawText.length > 0 || message.attachments.size > 0)) {
+            earnedXp = 1;
+          }
+          earnedXp = Math.max(1, Math.min(earnedXp, 50));
+
           xpCooldownTracker.set(cooldownKey, now);
-          const earnedXp = Math.floor(Math.random() * 11) + 15; // 15 to 25 XP per message
           const xpResult = DatabaseManager.addXp(message.guild.id, message.author.id, earnedXp);
 
           if (xpResult.leveledUp) {

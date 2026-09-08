@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { DatabaseManager } = require('../../../database/db');
+const { formatInviteLeaderboard } = require('../../utils/leaderboardFormatter');
 const EmbedUtils = require('../../utils/embeds');
 const config = require('../../../config.json');
 
@@ -120,37 +121,7 @@ module.exports = {
 
     // 2. LEADERBOARD
     if (subcommand === 'leaderboard') {
-      const topInviters = DatabaseManager.getInviteLeaderboard(guild.id, 10);
-
-      if (topInviters.length === 0) {
-        return interaction.reply({
-          embeds: [
-            EmbedUtils.info(
-              '🏆 Invite Leaderboard',
-              'No invite activity recorded yet for this server!\nShare your server invite links to claim the top spot on the leaderboard.'
-            )
-          ]
-        });
-      }
-
-      const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-
-      let leaderboardText = '';
-      topInviters.forEach((entry, idx) => {
-        const medal = medals[idx] || `\`#${idx + 1}\``;
-        leaderboardText += `${medal} <@${entry.userId}> — **${entry.total}** invites\n` +
-          `　└ *(✅ \`${entry.regular}\` regular | ❌ \`${entry.leaves}\` left | ⚠️ \`${entry.fake}\` fake | 🎁 \`${entry.bonus}\` bonus)*\n\n`;
-      });
-
-      const embed = new EmbedBuilder()
-        .setColor(config.embedColors.warning)
-        .setAuthor({ name: `${guild.name} • Invite Leaderboard`, iconURL: guild.iconURL() })
-        .setTitle('🏆 Top Server Inviters')
-        .setDescription(leaderboardText)
-        .setThumbnail(guild.iconURL({ dynamic: true, size: 256 }))
-        .setFooter({ text: `Hinata Invite Leaderboard • Top ${topInviters.length} Inviters` })
-        .setTimestamp();
-
+      const embed = formatInviteLeaderboard(guild, interaction.user, 10);
       return interaction.reply({ embeds: [embed] });
     }
 

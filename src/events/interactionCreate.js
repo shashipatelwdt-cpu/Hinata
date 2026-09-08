@@ -12,6 +12,7 @@ const {
   TextInputStyle
 } = require('discord.js');
 const { DatabaseManager } = require('../../database/db');
+const { formatInviteLeaderboard } = require('../utils/leaderboardFormatter');
 const { getAllWelcomeTemplates, getWelcomeTemplate } = require('../templates/welcomeTemplates');
 const { getAllRulesTemplates, getRulesTemplate } = require('../templates/rulesTemplates');
 const { buildRulesEmbed } = require('../commands/setup/rules');
@@ -2107,25 +2108,7 @@ module.exports = {
 
       // Invite Leaderboard Button from /invites check
       if (customId === 'btn_invites_top') {
-        const topInviters = DatabaseManager.getInviteLeaderboard(interaction.guild.id, 10);
-        if (topInviters.length === 0) {
-          return interaction.reply({ content: 'No invite records found yet for this server.', ephemeral: true });
-        }
-
-        const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-        let text = '';
-        topInviters.forEach((entry, idx) => {
-          const medal = medals[idx] || `\`#${idx + 1}\``;
-          text += `${medal} <@${entry.userId}> — **${entry.total}** net invites *(✅ \`${entry.regular}\` | ❌ \`${entry.leaves}\` | ⚠️ \`${entry.fake}\`)*\n`;
-        });
-
-        const embed = new EmbedBuilder()
-          .setColor(config.embedColors.warning)
-          .setTitle('🏆 Top Server Inviters')
-          .setDescription(text)
-          .setFooter({ text: `${interaction.guild.name} Invite Leaderboard` })
-          .setTimestamp();
-
+        const embed = formatInviteLeaderboard(interaction.guild, interaction.user, 10);
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 

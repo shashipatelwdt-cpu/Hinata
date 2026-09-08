@@ -647,7 +647,13 @@ const HELP_CATEGORIES = {
       {
         name: '/levels leaderboard',
         syntax: '/levels leaderboard | /levels rewards',
-        desc: '🏆 View server top-10 XP leaderboard, tier rankings, and personalized role reward roadmap.',
+        desc: '🏆 View server top-10 XP leaderboard (AmariBot UI) and personalized role reward roadmap.',
+        perms: 'Everyone'
+      },
+      {
+        name: '/leaderboard',
+        syntax: '/leaderboard normal | /leaderboard invites | /leaderboard counting',
+        desc: '👑 AmariBot-style server rankings for Chat XP (1 XP per word), Invites, and Counting.',
         perms: 'Everyone'
       }
     ]

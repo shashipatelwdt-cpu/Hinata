@@ -131,14 +131,14 @@ async function applyLevelingBundle(guild) {
     .setTitle('🏆 Server Leveling Engine & Automatic Role Perks')
     .setDescription(
       `Welcome to <#${levelChannel.id}>! All level-up notifications will be announced here.\n\n` +
-      `Chat actively in any text channel to earn **15–25 XP per minute** and automatically unlock exclusive server roles and permissions!\n\n` +
+      `Chat actively in any text channel to earn **1 XP per word** and automatically unlock exclusive server roles and permissions!\n\n` +
       createdRoles.map(cr => `⭐ **Level ${cr.tier.level}** ➔ <@&${cr.role.id}>\n> 🔓 **Unlocked Perks:** *${cr.tier.perks}*`).join('\n\n') +
       `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `• Use \`/rank\` to view your level, XP progress bar, and server ranking.\n` +
-      `• Use \`/levels leaderboard\` to see the top 10 most active chatters in the server!`
+      `• Use \`/leaderboard\` or \`/levels leaderboard\` to see the top active chatters in the server!`
     )
-    .setColor('#5865F2')
-    .setFooter({ text: 'Arcane Leveling System • Automatic Role & Permission Rewards' })
+    .setColor('#FEE75C')
+    .setFooter({ text: 'Leveling System • 1 XP Per Word • Role Rewards' })
     .setTimestamp();
 
   await levelChannel.send({ embeds: [roadmapEmbed] }).catch(() => null);

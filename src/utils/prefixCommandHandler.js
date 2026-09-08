@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits, ChannelType, AttachmentBuilder } = require('discord.js');
 const { generateRankCard } = require('./rankCardGenerator');
+const { formatLevelLeaderboard, formatInviteLeaderboard, formatCountingLeaderboard } = require('./leaderboardFormatter');
 const MusicManager = require('../music/MusicManager');
 const SnipeManager = require('./snipeManager');
 const EmbedUtils = require('./embeds');
@@ -1279,6 +1280,65 @@ class PrefixCommandHandler {
             embeds: [EmbedUtils.error('Announcement Failed', `Could not post to <#${targetChannel.id}>: \`${e.message}\``)]
           });
         }
+      }
+
+      // ==========================================
+      // LEADERBOARD COMMAND (AmariBot UI)
+      // ==========================================
+      case 'leaderboard':
+      case 'lb':
+      case 'top': {
+        const type = (args[0] || '').toLowerCase();
+        if (type === 'invites' || type === 'inv' || type === 'invite') {
+          const embed = formatInviteLeaderboard(message.guild, message.author, 10);
+          await message.reply({ embeds: [embed] }).catch(() => null);
+          return true;
+        }
+        if (type === 'counting' || type === 'count') {
+          const embed = formatCountingLeaderboard(message.guild, message.author, 10);
+          await message.reply({ embeds: [embed] }).catch(() => null);
+          return true;
+        }
+
+        // Default: Chat XP / Level Leaderboard (AmariBot UI)
+        const embed = formatLevelLeaderboard(message.guild, message.author, 10);
+        await message.reply({ embeds: [embed] }).catch(() => null);
+        return true;
+      }
+
+      // ==========================================
+      // INVITES COMMAND
+      // ==========================================
+      case 'invites':
+      case 'inv': {
+        const sub = (args[0] || '').toLowerCase();
+        if (sub === 'lb' || sub === 'leaderboard' || sub === 'top') {
+          const embed = formatInviteLeaderboard(message.guild, message.author, 10);
+          await message.reply({ embeds: [embed] }).catch(() => null);
+          return true;
+        }
+        const targetUser = message.mentions.users.first() || message.author;
+        const stats = DatabaseManager.getInvites(message.guild.id, targetUser.id);
+        const rank = DatabaseManager.getUserInviteRank(message.guild.id, targetUser.id);
+
+        const embed = new EmbedBuilder()
+          .setColor('#FEE75C')
+          .setAuthor({
+            name: `${targetUser.username}'s Invite Profile`,
+            iconURL: targetUser.displayAvatarURL({ dynamic: true })
+          })
+          .setTitle(`📊 Total Net Invites: ${stats.total.toLocaleString()}`)
+          .setDescription(
+            `**Server Rank:** ${rank ? `🏅 **#${rank}** on Leaderboard` : '*Unranked*'}\n\n` +
+            `• ✅ **Regular:** \`${stats.regular}\`\n` +
+            `• ❌ **Left:** \`${stats.leaves}\`\n` +
+            `• ⚠️ **Fake/Alt:** \`${stats.fake}\`\n` +
+            `• 🎁 **Bonus:** \`${stats.bonus}\``
+          )
+          .setFooter({ text: `${message.guild.name} • Tip: 'h lb invites' for leaderboard` });
+
+        await message.reply({ embeds: [embed] }).catch(() => null);
+        return true;
       }
 
       // ==========================================
