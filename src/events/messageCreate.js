@@ -218,71 +218,94 @@ module.exports = {
     }
 
     // ==========================================
-    // 3. CHAT XP & LEVEL UP SYSTEM
+    // 3. ARCANE-STYLE CHAT XP & LEVEL UP SYSTEM
     // ==========================================
     const guildLevelData = DatabaseManager.getLevelGuildData(message.guild.id);
-    if (guildLevelData && guildLevelData.config && guildLevelData.config.enabled !== false) {
-      const cooldownKey = `${message.guild.id}_${message.author.id}`;
-      const lastXpTime = xpCooldownTracker.get(cooldownKey) || 0;
-      const now = Date.now();
+    const levelConfig = guildLevelData?.config || {};
 
-      if (now - lastXpTime >= 60000) {
-        xpCooldownTracker.set(cooldownKey, now);
-        const earnedXp = Math.floor(Math.random() * 11) + 15; // 15 to 25 XP per message
-        const xpResult = DatabaseManager.addXp(message.guild.id, message.author.id, earnedXp);
+    if (guildLevelData && levelConfig.enabled !== false) {
+      // Arcane check: Ignored channel check
+      const isChannelIgnored = Array.isArray(levelConfig.ignoredChannels) && levelConfig.ignoredChannels.includes(message.channel.id);
+      // Arcane check: Ignored roles check
+      const hasIgnoredRole = Array.isArray(levelConfig.ignoredRoles) && member.roles.cache.some(r => levelConfig.ignoredRoles.includes(r.id));
 
-        if (xpResult.leveledUp) {
-          // Check role rewards
-          let roleRewardText = '';
-          const rewardRoleId = guildLevelData.config.roleRewards?.[String(xpResult.newLevel)];
-          if (rewardRoleId) {
-            const rewardRole = message.guild.roles.cache.get(rewardRoleId) || await message.guild.roles.fetch(rewardRoleId).catch(() => null);
-            if (rewardRole) {
-              const botMember = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
-              if (botMember && botMember.permissions.has(PermissionFlagsBits.ManageRoles) && botMember.roles.highest.position > rewardRole.position) {
-                await member.roles.add(rewardRole, `Hinata Level Up Reward (Level ${xpResult.newLevel})`).catch(() => null);
-                roleRewardText = `\n\n🎁 **Role Reward Unlocked:** <@&${rewardRole.id}>!`;
+      if (!isChannelIgnored && !hasIgnoredRole) {
+        const cooldownKey = `${message.guild.id}_${message.author.id}`;
+        const lastXpTime = xpCooldownTracker.get(cooldownKey) || 0;
+        const now = Date.now();
+
+        // Arcane 60-second cooldown per user
+        if (now - lastXpTime >= 60000) {
+          xpCooldownTracker.set(cooldownKey, now);
+          const earnedXp = Math.floor(Math.random() * 11) + 15; // 15 to 25 XP per message
+          const xpResult = DatabaseManager.addXp(message.guild.id, message.author.id, earnedXp);
+
+          if (xpResult.leveledUp) {
+            // 1. Role Rewards Handling (Arcane Style)
+            let unlockedRole = null;
+            const rewardRoleId = levelConfig.roleRewards?.[String(xpResult.newLevel)];
+
+            if (rewardRoleId) {
+              const rewardRole = message.guild.roles.cache.get(rewardRoleId) || await message.guild.roles.fetch(rewardRoleId).catch(() => null);
+              if (rewardRole) {
+                const botMember = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
+                if (botMember && botMember.permissions.has(PermissionFlagsBits.ManageRoles) && botMember.roles.highest.position > rewardRole.position) {
+                  await member.roles.add(rewardRole, `Arcane Level Up Reward (Level ${xpResult.newLevel})`).catch(() => null);
+                  unlockedRole = rewardRole;
+
+                  // If non-stacking roles: remove lower level reward roles
+                  if (levelConfig.stackRoles === false) {
+                    for (const [lvlStr, prevRoleId] of Object.entries(levelConfig.roleRewards)) {
+                      const prevLvl = parseInt(lvlStr, 10);
+                      if (prevLvl < xpResult.newLevel && prevRoleId !== rewardRoleId && member.roles.cache.has(prevRoleId)) {
+                        await member.roles.remove(prevRoleId, 'Arcane unstacking role reward progression').catch(() => null);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // 2. Arcane Level Up Announcement Message
+            const channelType = levelConfig.channelType || (levelConfig.channelId ? 'custom' : 'current');
+
+            if (channelType !== 'none') {
+              const roleText = unlockedRole ? `<@&${unlockedRole.id}>` : '';
+              const rawTemplate = levelConfig.message || 'GG {user}, you just leveled up to **level {level}**!';
+              
+              let announcementText = rawTemplate
+                .replace(/{user}/g, `<@${message.author.id}>`)
+                .replace(/{level}/g, xpResult.newLevel)
+                .replace(/{server}/g, message.guild.name);
+
+              if (rawTemplate.includes('{role}')) {
+                announcementText = announcementText.replace(/{role}/g, roleText);
+              } else if (unlockedRole) {
+                announcementText += ` You unlocked the ${roleText} role!`;
+              }
+
+              // Subtle celebration reaction on message
+              await message.react('⭐').catch(() => null);
+
+              // Dispatch announcement based on Arcane settings
+              if (channelType === 'dm') {
+                await message.author.send({ content: announcementText }).catch(() => {
+                  // If DMs closed, fallback to current channel
+                  message.channel.send({ content: announcementText }).catch(() => null);
+                });
+              } else if (channelType === 'custom' && levelConfig.channelId) {
+                const customCh = message.guild.channels.cache.get(levelConfig.channelId) || await message.guild.channels.fetch(levelConfig.channelId).catch(() => null);
+                if (customCh && customCh.isTextBased()) {
+                  await customCh.send({ content: announcementText }).catch(() => null);
+                } else {
+                  await message.channel.send({ content: announcementText }).catch(() => null);
+                }
+              } else {
+                // Default 'current' channel
+                await message.channel.send({ content: announcementText }).catch(() => null);
               }
             }
           }
-
-          // Target channel for announcement
-          let targetChannel = message.channel;
-          if (guildLevelData.config.channelId) {
-            const customCh = message.guild.channels.cache.get(guildLevelData.config.channelId) || await message.guild.channels.fetch(guildLevelData.config.channelId).catch(() => null);
-            if (customCh && customCh.isTextBased()) targetChannel = customCh;
-          }
-
-          const tier = xpResult.tier || DatabaseManager.getLevelTier(xpResult.newLevel);
-          const oldTier = xpResult.oldTier || DatabaseManager.getLevelTier(xpResult.oldLevel);
-          const isTierUp = tier.name !== oldTier.name;
-          const tierPromotionText = isTierUp ? `\n🌟 **TIER PROMOTION:** Advanced to **${tier.badge} ${tier.name} Tier**!` : '';
-
-          // Add celebration reactions to message
-          await message.react('⭐').catch(() => null);
-          if (xpResult.newLevel % 5 === 0) await message.react('🎉').catch(() => null);
-          if (xpResult.newLevel % 10 === 0) await message.react('👑').catch(() => null);
-
-          const levelEmbed = new EmbedBuilder()
-            .setAuthor({ 
-              name: `${message.author.username} Leveled Up!`, 
-              iconURL: message.author.displayAvatarURL({ dynamic: true }) 
-            })
-            .setTitle(`${tier.badge} LEVEL UP! • LEVEL ${xpResult.newLevel}`)
-            .setDescription(
-              `🎉 Congratulations <@${message.author.id}>! Your server activity paid off!\n\n` +
-              `**⭐ Current Level:** \`Level ${xpResult.newLevel}\` (${tier.badge} **${tier.name} Tier**)` +
-              `${tierPromotionText}\n` +
-              `**✨ Total XP:** \`${xpResult.totalXp.toLocaleString()} XP\`\n` +
-              `**🎯 Next Milestone:** \`${xpResult.neededXp.toLocaleString()} XP to Level ${xpResult.newLevel + 1}\`` +
-              `${roleRewardText}`
-            )
-            .setThumbnail(message.author.displayAvatarURL({ dynamic: true, size: 256 }))
-            .setColor(tier.color || config.embedColors?.success || '#57F287')
-            .setFooter({ text: `Hinata Leveling Engine • Chat actively to climb the leaderboard!` })
-            .setTimestamp();
-
-          targetChannel.send({ embeds: [levelEmbed] }).catch(() => null);
         }
       }
     }

@@ -59,21 +59,45 @@ const HELP_CATEGORIES = {
         perms: 'Manage Channels'
       },
       {
+        name: '/leveling bundle',
+        syntax: '/leveling bundle',
+        desc: '🚀 1-Click Auto Setup: Creates 5 Level Roles with Discord permissions & dedicated #level-ups channel.',
+        perms: 'Manage Server'
+      },
+      {
         name: '/leveling config',
-        syntax: '/leveling config enabled:<true/false> [channel:<#channel>] [multiplier:<0.5-5.0>]',
-        desc: 'Enable or disable chat XP leveling, set announcement channel, and configure double XP multipliers.',
+        syntax: '/leveling config [enabled:<true/false>] [channel_type:<current/custom/dm/none>] [channel:<#channel>] [multiplier:<0.5-5.0>] [stack_roles:<true/false>]',
+        desc: 'Configure Arcane announcement channels (current/custom/dm/none), double XP multipliers, and role stacking.',
+        perms: 'Manage Server'
+      },
+      {
+        name: '/leveling message',
+        syntax: '/leveling message template:<"GG {user}, you just reached level {level}!">',
+        desc: 'Set custom level up message with variables: {user}, {level}, {role}, {server}.',
         perms: 'Manage Server'
       },
       {
         name: '/leveling reward_add',
         syntax: '/leveling reward_add level:<X> role:<@role> | /leveling reward_remove level:<X>',
-        desc: 'Configure automatic role rewards for reaching specific levels.',
+        desc: 'Configure automatic role rewards unlocked upon reaching specific levels.',
+        perms: 'Manage Server'
+      },
+      {
+        name: '/leveling ignore_channel',
+        syntax: '/leveling ignore_channel channel:<#channel> | /leveling ignore_role role:<@role>',
+        desc: 'Blacklist channels (e.g. spam/bots) or roles from gaining chat XP.',
+        perms: 'Manage Server'
+      },
+      {
+        name: '/leveling xp_add',
+        syntax: '/leveling xp_add user:<@user> amount:<X> | /leveling xp_remove user:<@user> amount:<X>',
+        desc: 'Add or deduct specific XP points from a member.',
         perms: 'Manage Server'
       },
       {
         name: '/leveling set_level',
         syntax: '/leveling set_level user:<@user> level:<X> | /leveling reset_user user:<@user>',
-        desc: 'Admin controls to manually adjust or reset member XP and level.',
+        desc: 'Admin controls to manually set or reset member level.',
         perms: 'Manage Server'
       }
     ]

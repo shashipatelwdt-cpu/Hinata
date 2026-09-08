@@ -1130,5 +1130,26 @@
   "playlists": {},
   "counting": {},
   "afk": {},
-  "levels": {}
+  "levels": {
+    "1505578928494874674": {
+      "config": {
+        "enabled": true,
+        "channelType": "custom",
+        "channelId": "1546775692543393832",
+        "message": "GG {user}, you just leveled up to **level {level}**!",
+        "multiplier": 1,
+        "stackRoles": true,
+        "ignoredChannels": [],
+        "ignoredRoles": [],
+        "roleRewards": {
+          "5": "1546775696721051648",
+          "10": "1546775922206707723",
+          "20": "1546775925843296339",
+          "35": "1546775929202806794",
+          "50": "1546775931270463508"
+        }
+      },
+      "users": {}
+    }
+  }
 }

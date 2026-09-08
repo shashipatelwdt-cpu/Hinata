@@ -2,10 +2,15 @@ const fs = require('fs');
 const path = require('path');
 
 const dataDir = path.join(__dirname, '..', 'data');
+const backupsDir = path.join(dataDir, 'backups');
 const dbFile = path.join(dataDir, 'database.json');
+const backupFile = path.join(dataDir, 'database.json.bak');
 
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
+}
+if (!fs.existsSync(backupsDir)) {
+  fs.mkdirSync(backupsDir, { recursive: true });
 }
 
 // Initial in-memory data store structure
@@ -23,44 +28,237 @@ let store = {
   levels: {}
 };
 
-// Load database from file
+function applyParsedStore(parsed) {
+  store = {
+    guild_settings: parsed.guild_settings || {},
+    warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
+    tickets: parsed.tickets || {},
+    giveaways: parsed.giveaways || {},
+    invites: parsed.invites || {},
+    invite_members: parsed.invite_members || {},
+    bot_meta: parsed.bot_meta || {},
+    playlists: parsed.playlists || {},
+    counting: parsed.counting || {},
+    afk: parsed.afk || {},
+    levels: parsed.levels || {}
+  };
+}
+
+function isValidDatabaseObject(obj) {
+  return obj && typeof obj === 'object' && !Array.isArray(obj) &&
+    (obj.guild_settings || obj.levels || obj.warnings || obj.invites || obj.playlists || obj.tickets);
+}
+
+// Multi-Stage Resilient Load Database with Zero Data Wipe Safeguards
 function loadDatabase() {
-  try {
-    if (fs.existsSync(dbFile)) {
-      const raw = fs.readFileSync(dbFile, 'utf8');
-      const parsed = JSON.parse(raw);
-      store = {
-        guild_settings: parsed.guild_settings || {},
-        warnings: parsed.warnings || [],
-        tickets: parsed.tickets || {},
-        giveaways: parsed.giveaways || {},
-        invites: parsed.invites || {},
-        invite_members: parsed.invite_members || {},
-        bot_meta: parsed.bot_meta || {},
-        playlists: parsed.playlists || {},
-        counting: parsed.counting || {},
-        afk: parsed.afk || {},
-        levels: parsed.levels || {}
-      };
-    } else {
-      saveDatabase();
+  let loaded = false;
+
+  // Stage 1: Try reading main dbFile
+  if (fs.existsSync(dbFile)) {
+    try {
+      const raw = fs.readFileSync(dbFile, 'utf8').trim();
+      if (raw.length > 0) {
+        const parsed = JSON.parse(raw);
+        if (isValidDatabaseObject(parsed)) {
+          applyParsedStore(parsed);
+          loaded = true;
+          // Maintain a known-good backup mirror
+          try {
+            fs.copyFileSync(dbFile, backupFile);
+          } catch {}
+        } else {
+          console.warn('[DATABASE WARNING] database.json exists but contains unexpected structure.');
+        }
+      }
+    } catch (error) {
+      console.error('[DATABASE CORRUPTION WARNING] Error reading database.json:', error.message);
+      // Quarantine the corrupted file so ZERO data is lost
+      try {
+        const quarantine = path.join(dataDir, `database.corrupted.${Date.now()}.json`);
+        fs.copyFileSync(dbFile, quarantine);
+        console.warn(`[DATABASE RECOVERY] Corrupted file quarantined as: ${path.basename(quarantine)}`);
+      } catch {}
     }
-  } catch (error) {
-    console.error('[DATABASE] Failed to load data file, initializing fresh store:', error);
-    saveDatabase();
+  }
+
+  // Stage 2: If main failed, try fallback backup file (database.json.bak)
+  if (!loaded && fs.existsSync(backupFile)) {
+    try {
+      console.log('[DATABASE RECOVERY] Attempting restore from database.json.bak...');
+      const rawBak = fs.readFileSync(backupFile, 'utf8').trim();
+      if (rawBak.length > 0) {
+        const parsedBak = JSON.parse(rawBak);
+        if (isValidDatabaseObject(parsedBak)) {
+          applyParsedStore(parsedBak);
+          loaded = true;
+          console.log('✅ [DATABASE RECOVERY] Restored successfully from database.json.bak!');
+          try {
+            fs.copyFileSync(backupFile, dbFile);
+          } catch {}
+        }
+      }
+    } catch (bakErr) {
+      console.error('[DATABASE RECOVERY] Failed reading backup file:', bakErr.message);
+    }
+  }
+
+  // Stage 3: If still not loaded, scan rolling snapshots in data/backups/
+  if (!loaded && fs.existsSync(backupsDir)) {
+    try {
+      const snapshotFiles = fs.readdirSync(backupsDir)
+        .filter(f => f.startsWith('database-') && f.endsWith('.json'))
+        .sort()
+        .reverse();
+
+      for (const snapFile of snapshotFiles) {
+        try {
+          const snapPath = path.join(backupsDir, snapFile);
+          const rawSnap = fs.readFileSync(snapPath, 'utf8').trim();
+          if (rawSnap.length > 0) {
+            const parsedSnap = JSON.parse(rawSnap);
+            if (isValidDatabaseObject(parsedSnap)) {
+              applyParsedStore(parsedSnap);
+              loaded = true;
+              console.log(`✅ [DATABASE RECOVERY] Restored successfully from snapshot: ${snapFile}!`);
+              try {
+                fs.copyFileSync(snapPath, dbFile);
+                fs.copyFileSync(snapPath, backupFile);
+              } catch {}
+              break;
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+  }
+
+  // Final check: If completely fresh start (first install)
+  if (!loaded) {
+    if (!fs.existsSync(dbFile)) {
+      console.log('[DATABASE] Fresh install detected: creating initial database.json.');
+      saveDatabaseDirect();
+    } else {
+      console.error('🚨 [DATABASE CRITICAL] Could not parse database. Retaining current in-memory store without overwriting disk.');
+    }
   }
 }
 
-// Atomic save to file
-function saveDatabase() {
+// Rolling 30-minute backup snapshots
+let lastSnapshotTime = 0;
+function createPeriodicSnapshot() {
+  const now = Date.now();
+  if (now - lastSnapshotTime < 30 * 60 * 1000) return; // 30 mins
+  lastSnapshotTime = now;
+
   try {
-    const tempFile = `${dbFile}.tmp`;
-    fs.writeFileSync(tempFile, JSON.stringify(store, null, 2), 'utf8');
-    fs.renameSync(tempFile, dbFile);
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+    const snapPath = path.join(backupsDir, `database-${dateStr}.json`);
+    fs.copyFileSync(dbFile, snapPath);
+
+    // Keep only last 10 snapshots
+    const snapshots = fs.readdirSync(backupsDir)
+      .filter(f => f.startsWith('database-') && f.endsWith('.json'))
+      .sort();
+
+    while (snapshots.length > 10) {
+      const oldest = snapshots.shift();
+      try { fs.unlinkSync(path.join(backupsDir, oldest)); } catch {}
+    }
+  } catch {}
+}
+
+// Resilient Debounced Atomic Save with Windows/OneDrive collision handling
+let saveDebounceTimer = null;
+let isSavingActive = false;
+let hasQueuedSave = false;
+
+function scheduleDebouncedSave() {
+  if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(() => {
+    saveDebounceTimer = null;
+    saveDatabaseDirect();
+  }, 1000); // 1-second debounce prevents rapid disk thrashing
+}
+
+function saveDatabaseDirect() {
+  if (isSavingActive) {
+    hasQueuedSave = true;
+    return;
+  }
+  isSavingActive = true;
+
+  try {
+    const dataStr = JSON.stringify(store, null, 2);
+    const tempFile = path.join(dataDir, `db-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.tmp`);
+
+    fs.writeFileSync(tempFile, dataStr, 'utf8');
+
+    // Windows/OneDrive safe atomic rename with copy fallback
+    let saved = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        fs.renameSync(tempFile, dbFile);
+        saved = true;
+        break;
+      } catch (err) {
+        // Handle Windows EPERM / EBUSY
+        try {
+          fs.copyFileSync(tempFile, dbFile);
+          try { fs.unlinkSync(tempFile); } catch {}
+          saved = true;
+          break;
+        } catch {}
+      }
+    }
+
+    if (!saved) {
+      // Last resort direct write
+      fs.writeFileSync(dbFile, dataStr, 'utf8');
+      try { fs.unlinkSync(tempFile); } catch {}
+    }
+
+    // Maintain .bak mirror
+    try {
+      fs.copyFileSync(dbFile, backupFile);
+    } catch {}
+
+    createPeriodicSnapshot();
   } catch (error) {
-    console.error('[DATABASE] Error saving database:', error);
+    console.error('[DATABASE SAVE ERROR]:', error.message);
+  } finally {
+    isSavingActive = false;
+    if (hasQueuedSave) {
+      hasQueuedSave = false;
+      scheduleDebouncedSave();
+    }
   }
 }
+
+function saveDatabase(immediate = false) {
+  if (immediate) {
+    if (saveDebounceTimer) {
+      clearTimeout(saveDebounceTimer);
+      saveDebounceTimer = null;
+    }
+    saveDatabaseDirect();
+  } else {
+    scheduleDebouncedSave();
+  }
+}
+
+// Flush pending changes immediately on process termination
+function flushOnProcessExit() {
+  if (saveDebounceTimer) {
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = null;
+    saveDatabaseDirect();
+  }
+}
+
+process.on('exit', flushOnProcessExit);
+process.on('beforeExit', flushOnProcessExit);
+process.on('SIGINT', () => { flushOnProcessExit(); process.exit(0); });
+process.on('SIGTERM', () => { flushOnProcessExit(); process.exit(0); });
 
 // Initialize on require
 loadDatabase();
@@ -852,7 +1050,9 @@ class DatabaseManager {
     }));
   }
 
-  // --- PROFESSIONAL LEVEL & XP SYSTEM HELPERS ---
+  // ==========================================
+  // ARCANE-STYLE LEVEL & XP SYSTEM HELPERS
+  // ==========================================
   static getXpNeededForLevel(level) {
     const lvl = Math.max(0, parseInt(level) || 0);
     return 5 * (lvl * lvl) + 50 * lvl + 100;
@@ -864,12 +1064,30 @@ class DatabaseManager {
       store.levels[guildId] = {
         config: {
           enabled: true,
+          channelType: 'current', // 'current' | 'custom' | 'dm' | 'none'
           channelId: null,
+          message: 'GG {user}, you just leveled up to **level {level}**!',
+          multiplier: 1.0,
+          stackRoles: true,
+          ignoredChannels: [],
+          ignoredRoles: [],
           roleRewards: {}
         },
         users: {}
       };
       saveDatabase();
+    } else {
+      const cfg = store.levels[guildId].config || {};
+      if (cfg.enabled === undefined) cfg.enabled = true;
+      if (!cfg.channelType) cfg.channelType = cfg.channelId ? 'custom' : 'current';
+      if (!cfg.message) cfg.message = 'GG {user}, you just leveled up to **level {level}**!';
+      if (cfg.multiplier === undefined) cfg.multiplier = 1.0;
+      if (cfg.stackRoles === undefined) cfg.stackRoles = true;
+      if (!Array.isArray(cfg.ignoredChannels)) cfg.ignoredChannels = [];
+      if (!Array.isArray(cfg.ignoredRoles)) cfg.ignoredRoles = [];
+      if (!cfg.roleRewards || typeof cfg.roleRewards !== 'object') cfg.roleRewards = {};
+      store.levels[guildId].config = cfg;
+      if (!store.levels[guildId].users) store.levels[guildId].users = {};
     }
     return store.levels[guildId];
   }
@@ -877,15 +1095,68 @@ class DatabaseManager {
   static setLevelConfig(guildId, configUpdates) {
     const data = this.getLevelGuildData(guildId);
     data.config = { ...data.config, ...configUpdates };
-    saveDatabase();
+    saveDatabase(true);
     return data.config;
+  }
+
+  static setLevelMessage(guildId, messageTemplate) {
+    const data = this.getLevelGuildData(guildId);
+    data.config.message = messageTemplate || 'GG {user}, you just leveled up to **level {level}**!';
+    saveDatabase(true);
+    return data.config.message;
+  }
+
+  static addIgnoredChannel(guildId, channelId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!Array.isArray(data.config.ignoredChannels)) data.config.ignoredChannels = [];
+    if (!data.config.ignoredChannels.includes(channelId)) {
+      data.config.ignoredChannels.push(channelId);
+      saveDatabase(true);
+      return true;
+    }
+    return false;
+  }
+
+  static removeIgnoredChannel(guildId, channelId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!Array.isArray(data.config.ignoredChannels)) return false;
+    const initialLen = data.config.ignoredChannels.length;
+    data.config.ignoredChannels = data.config.ignoredChannels.filter(id => id !== channelId);
+    if (data.config.ignoredChannels.length < initialLen) {
+      saveDatabase(true);
+      return true;
+    }
+    return false;
+  }
+
+  static addIgnoredRole(guildId, roleId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!Array.isArray(data.config.ignoredRoles)) data.config.ignoredRoles = [];
+    if (!data.config.ignoredRoles.includes(roleId)) {
+      data.config.ignoredRoles.push(roleId);
+      saveDatabase(true);
+      return true;
+    }
+    return false;
+  }
+
+  static removeIgnoredRole(guildId, roleId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!Array.isArray(data.config.ignoredRoles)) return false;
+    const initialLen = data.config.ignoredRoles.length;
+    data.config.ignoredRoles = data.config.ignoredRoles.filter(id => id !== roleId);
+    if (data.config.ignoredRoles.length < initialLen) {
+      saveDatabase(true);
+      return true;
+    }
+    return false;
   }
 
   static addLevelRoleReward(guildId, level, roleId) {
     const data = this.getLevelGuildData(guildId);
     if (!data.config.roleRewards) data.config.roleRewards = {};
     data.config.roleRewards[String(level)] = roleId;
-    saveDatabase();
+    saveDatabase(true);
     return data.config.roleRewards;
   }
 
@@ -893,7 +1164,7 @@ class DatabaseManager {
     const data = this.getLevelGuildData(guildId);
     if (data.config.roleRewards && data.config.roleRewards[String(level)]) {
       delete data.config.roleRewards[String(level)];
-      saveDatabase();
+      saveDatabase(true);
       return true;
     }
     return false;
@@ -957,14 +1228,49 @@ class DatabaseManager {
     user.level = Math.max(0, parseInt(targetLevel) || 0);
     user.xp = Math.max(0, parseInt(targetXp) || 0);
     
-    // Recalculate total XP approximately
+    // Recalculate total XP
     let calculatedTotal = user.xp;
     for (let l = 0; l < user.level; l++) {
       calculatedTotal += this.getXpNeededForLevel(l);
     }
     user.totalXp = calculatedTotal;
-    saveDatabase();
+    saveDatabase(true);
     return user;
+  }
+
+  static addXpToUser(guildId, userId, amount) {
+    const addAmt = Math.max(0, parseInt(amount) || 0);
+    return this.addXp(guildId, userId, addAmt, true);
+  }
+
+  static removeXpFromUser(guildId, userId, amount) {
+    const data = this.getLevelGuildData(guildId);
+    const user = this.getUserLevel(guildId, userId);
+    const subAmt = Math.max(0, parseInt(amount) || 0);
+
+    const oldLevel = user.level || 0;
+    const newTotal = Math.max(0, (user.totalXp || 0) - subAmt);
+
+    let calculatedLevel = 0;
+    let remainingXp = newTotal;
+    while (remainingXp >= this.getXpNeededForLevel(calculatedLevel)) {
+      remainingXp -= this.getXpNeededForLevel(calculatedLevel);
+      calculatedLevel++;
+    }
+
+    data.users[userId].level = calculatedLevel;
+    data.users[userId].xp = remainingXp;
+    data.users[userId].totalXp = newTotal;
+    saveDatabase(true);
+
+    return {
+      userId,
+      oldLevel,
+      newLevel: calculatedLevel,
+      currentXp: remainingXp,
+      neededXp: this.getXpNeededForLevel(calculatedLevel),
+      totalXp: newTotal
+    };
   }
 
   static resetUserLevel(guildId, userId) {
@@ -977,13 +1283,13 @@ class DatabaseManager {
         lastXpAt: 0,
         theme: data.users[userId].theme || {}
       };
-      saveDatabase();
+      saveDatabase(true);
       return true;
     }
     return false;
   }
 
-  static addXp(guildId, userId, amount = 20) {
+  static addXp(guildId, userId, amount = 20, bypassMultiplier = false) {
     const data = this.getLevelGuildData(guildId);
     if (!data.users[userId]) {
       data.users[userId] = {
@@ -994,7 +1300,7 @@ class DatabaseManager {
       };
     }
     const user = data.users[userId];
-    const multiplier = Math.max(0.1, parseFloat(data.config?.multiplier) || 1.0);
+    const multiplier = bypassMultiplier ? 1.0 : Math.max(0.1, parseFloat(data.config?.multiplier) || 1.0);
     const finalAmount = Math.max(1, Math.round(amount * multiplier));
 
     user.xp = (user.xp || 0) + finalAmount;

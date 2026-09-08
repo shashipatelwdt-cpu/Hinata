@@ -22,3 +22,9 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Database backups and temp files
+data/backups/
+*.bak
+*.tmp
+database.corrupted.*

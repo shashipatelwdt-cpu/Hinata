@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "build": "echo 'Build successful'",
-    "dev": "node --watch index.js",
+    "dev": "node --watch-path=src --watch-path=index.js index.js",
     "deploy": "node src/deploy-commands.js",
     "website": "node website/server.js"
   },
