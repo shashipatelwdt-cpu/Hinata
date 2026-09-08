@@ -152,6 +152,23 @@ process.on('uncaughtExceptionMonitor', (err, origin) => {
   console.error('[ANTI-CRASH] Uncaught Exception Monitor:', err?.message || err);
 });
 
+// Clean graceful shutdown on SIGTERM / SIGINT (Crucial for Render zero-downtime deploys)
+async function handleShutdown(signal) {
+  console.log(`🛑 Received ${signal}. Shutting down client and exiting cleanly...`);
+  try {
+    if (client) {
+      client.destroy();
+      console.log('🔌 Discord client destroyed.');
+    }
+  } catch (err) {
+    console.error('Error destroying Discord client:', err.message || err);
+  }
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+
 // 5. Client & Gateway Monitoring
 let lastBotError = null;
 let lastDiagnostics = null;

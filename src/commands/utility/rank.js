@@ -1,22 +1,13 @@
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { DatabaseManager } = require('../../../database/db');
+const { generateRankCard } = require('../../utils/rankCardGenerator');
 const EmbedUtils = require('../../utils/embeds');
 const config = require('../../../config.json');
-
-function generateArcaneBar(current, total, barLength = 16) {
-  if (total <= 0) return '░'.repeat(barLength) + ' 0%';
-  const ratio = Math.min(1, Math.max(0, current / total));
-  const filled = Math.round(barLength * ratio);
-  const empty = Math.max(0, barLength - filled);
-  const bar = '█'.repeat(filled) + '░'.repeat(empty);
-  const pct = Math.round(ratio * 100);
-  return `\`[${bar}]\` **${pct}%**`;
-}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('rank')
-    .setDescription('🎖️ Check your or another member’s level, XP progress, and server rank (Arcane Style)')
+    .setDescription('🎖️ Check your or another member’s level, XP progress, and server rank (AmariBot Card)')
     .addUserOption(opt =>
       opt
         .setName('user')
@@ -26,7 +17,7 @@ module.exports = {
     .addStringOption(opt =>
       opt
         .setName('color')
-        .setDescription('Customize your Rank Card accent color (Hex e.g. #5865F2, #00FFCC, or reset)')
+        .setDescription('Customize your Rank Card accent color (Hex e.g. #f4c444, #5865F2, or reset)')
         .setRequired(false)
     ),
 
@@ -39,7 +30,7 @@ module.exports = {
       if (colorOpt.toLowerCase() === 'reset') {
         DatabaseManager.setUserRankTheme(guild.id, interaction.user.id, { color: null });
         return interaction.reply({
-          embeds: [EmbedUtils.success('Theme Reset', 'Your Rank Card accent color has been reset to Arcane default!')],
+          embeds: [EmbedUtils.success('Theme Reset', 'Your Rank Card accent color has been reset to default (#f4c444)!')],
           ephemeral: true
         });
       }
@@ -48,7 +39,7 @@ module.exports = {
       const match = colorOpt.match(hexRegex);
       if (!match) {
         return interaction.reply({
-          embeds: [EmbedUtils.error('Invalid Hex Color', 'Please provide a valid 6-digit hex color code! Example: `/rank color:#5865F2` or `/rank color:#00D2FF`')],
+          embeds: [EmbedUtils.error('Invalid Hex Color', 'Please provide a valid 6-digit hex color code! Example: `/rank color:#f4c444` or `/rank color:#5865F2`')],
           ephemeral: true
         });
       }
@@ -60,7 +51,7 @@ module.exports = {
         embeds: [
           new EmbedBuilder()
             .setTitle('🎨 Rank Card Color Updated!')
-            .setDescription(`Your Arcane Rank Card accent color is now set to **\`${cleanHex}\`**!`)
+            .setDescription(`Your Rank Card accent color is now set to **\`${cleanHex}\`**!`)
             .setColor(cleanHex)
         ],
         ephemeral: true
@@ -76,55 +67,36 @@ module.exports = {
       });
     }
 
-    const userData = DatabaseManager.getUserLevel(guild.id, targetUser.id);
-    const userRank = DatabaseManager.getUserRank(guild.id, targetUser.id);
-    const guildLevelData = DatabaseManager.getLevelGuildData(guild.id);
-    const userTheme = DatabaseManager.getUserRankTheme(guild.id, targetUser.id);
+    // Defer immediately to prevent Discord 3-second interaction timeouts
+    await interaction.deferReply();
 
-    const totalMembersRanked = Object.keys(guildLevelData.users || {}).length || 1;
-    const progressBar = generateArcaneBar(userData.xp, userData.neededXp);
-    const remainingXp = Math.max(0, userData.neededXp - userData.xp);
+    try {
+      const userData = DatabaseManager.getUserLevel(guild.id, targetUser.id);
+      const userRank = DatabaseManager.getUserRank(guild.id, targetUser.id);
+      const weeklyRank = DatabaseManager.getUserWeeklyRank(guild.id, targetUser.id);
+      const userTheme = DatabaseManager.getUserRankTheme(guild.id, targetUser.id);
+      const cardColor = userTheme.color || '#f4c444';
 
-    // Upcoming Role Reward Check
-    let nextRewardText = '✨ *All milestones completed!*';
-    const rewards = guildLevelData.config?.roleRewards || {};
-    const rewardLevels = Object.keys(rewards).map(Number).sort((a, b) => a - b);
-    const nextRewardLevel = rewardLevels.find(lvl => lvl > userData.level);
+      const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256, forceStatic: true });
+      const cardBuffer = await generateRankCard({
+        username: targetUser.username,
+        avatarUrl,
+        serverRank: userRank,
+        weeklyRank: weeklyRank,
+        weeklyXp: userData.weeklyXp || 0,
+        level: userData.level || 0,
+        currentXp: userData.xp || 0,
+        neededXp: userData.neededXp || 100,
+        accentColor: cardColor
+      });
 
-    if (nextRewardLevel) {
-      const roleId = rewards[String(nextRewardLevel)];
-      const lvlsLeft = nextRewardLevel - userData.level;
-      nextRewardText = `🎁 <@&${roleId}> at **Level ${nextRewardLevel}** (*${lvlsLeft} level${lvlsLeft === 1 ? '' : 's'} to go*)`;
-    } else if (rewardLevels.length === 0) {
-      nextRewardText = '🎁 *No role rewards configured on this server.*';
+      const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
+      return await interaction.editReply({ files: [attachment] });
+    } catch (err) {
+      console.error('[RANK COMMAND ERROR]:', err);
+      return await interaction.editReply({
+        content: `❌ An error occurred while generating the rank card: ${err.message}`
+      });
     }
-
-    const cardColor = userTheme.color || config.embedColors?.primary || '#5865F2';
-
-    const embed = new EmbedBuilder()
-      .setAuthor({ 
-        name: `${targetUser.username} • Arcane Leveling`, 
-        iconURL: targetUser.displayAvatarURL({ dynamic: true }) 
-      })
-      .setTitle(`Rank Card • ${targetUser.tag || targetUser.username}`)
-      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-      .setColor(cardColor)
-      .setDescription(
-        `🏆 **RANK:** \`#${userRank}\` of \`${totalMembersRanked}\`\n` +
-        `⭐ **LEVEL:** \`${userData.level}\`\n` +
-        `✨ **TOTAL XP:** \`${userData.totalXp.toLocaleString()} XP\`\n\n` +
-        `**XP PROGRESS (Level ${userData.level} ➔ ${userData.level + 1}):**\n` +
-        `${progressBar}\n` +
-        `\`${userData.xp.toLocaleString()} / ${userData.neededXp.toLocaleString()} XP\` (*${remainingXp.toLocaleString()} XP needed*)\n\n` +
-        `**NEXT MILESTONE:**\n` +
-        `${nextRewardText}`
-      )
-      .setFooter({ 
-        text: `Tip: Customize your card with /rank color:#hex • Arcane System`,
-        iconURL: guild.iconURL() || undefined
-      })
-      .setTimestamp();
-
-    return interaction.reply({ embeds: [embed] });
   }
 };

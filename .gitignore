@@ -28,3 +28,4 @@ data/backups/
 *.bak
 *.tmp
 database.corrupted.*
+scratch/

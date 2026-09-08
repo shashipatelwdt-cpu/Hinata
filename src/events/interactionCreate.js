@@ -66,10 +66,16 @@ module.exports = {
           ephemeral: true
         };
 
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp(replyPayload).catch(() => null);
-        } else {
-          await interaction.reply(replyPayload).catch(() => null);
+        try {
+          if (interaction.deferred && !interaction.replied) {
+            await interaction.editReply(replyPayload).catch(() => null);
+          } else if (interaction.replied) {
+            await interaction.followUp(replyPayload).catch(() => null);
+          } else {
+            await interaction.reply(replyPayload).catch(() => null);
+          }
+        } catch {
+          // Ignore secondary failure on already expired interactions
         }
       }
       return;

@@ -1,4 +1,5 @@
-const { EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ChannelType, AttachmentBuilder } = require('discord.js');
+const { generateRankCard } = require('./rankCardGenerator');
 const MusicManager = require('../music/MusicManager');
 const SnipeManager = require('./snipeManager');
 const EmbedUtils = require('./embeds');
@@ -1281,6 +1282,49 @@ class PrefixCommandHandler {
       }
 
       // ==========================================
+      // RANK & LEVEL COMMAND (AmariBot Style)
+      // ==========================================
+      case 'rank':
+      case 'level':
+      case 'lvl': {
+        const targetUser = message.mentions.users.first() || message.author;
+        if (targetUser.bot) {
+          await message.reply({ content: '🤖 Bots do not earn XP or levels!' }).catch(() => null);
+          return true;
+        }
+
+        try {
+          const guildId = message.guild.id;
+          const userData = DatabaseManager.getUserLevel(guildId, targetUser.id);
+          const userRank = DatabaseManager.getUserRank(guildId, targetUser.id);
+          const weeklyRank = DatabaseManager.getUserWeeklyRank(guildId, targetUser.id);
+          const userTheme = DatabaseManager.getUserRankTheme(guildId, targetUser.id);
+          const cardColor = userTheme.color || '#f4c444';
+
+          const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256, forceStatic: true });
+          const cardBuffer = await generateRankCard({
+            username: targetUser.username,
+            avatarUrl,
+            serverRank: userRank,
+            weeklyRank: weeklyRank,
+            weeklyXp: userData.weeklyXp || 0,
+            level: userData.level || 0,
+            currentXp: userData.xp || 0,
+            neededXp: userData.neededXp || 100,
+            accentColor: cardColor
+          });
+
+          const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
+          await message.reply({ files: [attachment] }).catch(() => null);
+          return true;
+        } catch (err) {
+          console.error('[PREFIX RANK ERROR]:', err);
+          await message.reply({ content: `❌ Error generating rank card: ${err.message}` }).catch(() => null);
+          return true;
+        }
+      }
+
+      // ==========================================
       // HELP COMMAND
       // ==========================================
       case 'help':
@@ -1303,6 +1347,7 @@ class PrefixCommandHandler {
             `• \`h lyrics [song]\` — Search song lyrics (\`h ly\`)\n` +
             `• \`h panel\` — Create interactive music control panel\n\n` +
             `**🛠️ Utility & Moderation Commands:**\n` +
+            `• \`h rank [@user]\` — View AmariBot-style Level & XP rank card\n` +
             `• \`h ghostping\` — View who ghost pinged whom and what was the message\n` +
             `• \`h snipe\` — View recently deleted message in channel\n` +
             `• \`h announce\` — Send server announcements with custom embeds & pings\n` +

@@ -1172,19 +1172,28 @@ class DatabaseManager {
 
   static getUserLevel(guildId, userId) {
     const data = this.getLevelGuildData(guildId);
+    const now = Date.now();
     if (!data.users[userId]) {
       data.users[userId] = {
         xp: 0,
         level: 0,
         totalXp: 0,
+        weeklyXp: 0,
+        weeklyResetAt: now + 7 * 24 * 60 * 60 * 1000,
         lastXpAt: 0
       };
       saveDatabase();
     }
     const user = data.users[userId];
+    if (!user.weeklyResetAt || now > user.weeklyResetAt) {
+      user.weeklyXp = 0;
+      user.weeklyResetAt = now + 7 * 24 * 60 * 60 * 1000;
+      saveDatabase();
+    }
     const neededXp = this.getXpNeededForLevel(user.level);
     return {
       ...user,
+      weeklyXp: user.weeklyXp || 0,
       neededXp,
       tier: this.getLevelTier(user.level)
     };
@@ -1291,21 +1300,30 @@ class DatabaseManager {
 
   static addXp(guildId, userId, amount = 20, bypassMultiplier = false) {
     const data = this.getLevelGuildData(guildId);
+    const now = Date.now();
     if (!data.users[userId]) {
       data.users[userId] = {
         xp: 0,
         level: 0,
         totalXp: 0,
+        weeklyXp: 0,
+        weeklyResetAt: now + 7 * 24 * 60 * 60 * 1000,
         lastXpAt: 0
       };
     }
     const user = data.users[userId];
+    if (!user.weeklyResetAt || now > user.weeklyResetAt) {
+      user.weeklyXp = 0;
+      user.weeklyResetAt = now + 7 * 24 * 60 * 60 * 1000;
+    }
+
     const multiplier = bypassMultiplier ? 1.0 : Math.max(0.1, parseFloat(data.config?.multiplier) || 1.0);
     const finalAmount = Math.max(1, Math.round(amount * multiplier));
 
     user.xp = (user.xp || 0) + finalAmount;
     user.totalXp = (user.totalXp || 0) + finalAmount;
-    user.lastXpAt = Date.now();
+    user.weeklyXp = (user.weeklyXp || 0) + finalAmount;
+    user.lastXpAt = now;
 
     let leveledUp = false;
     let oldLevel = user.level || 0;
@@ -1327,6 +1345,7 @@ class DatabaseManager {
       currentXp: user.xp,
       neededXp: needed,
       totalXp: user.totalXp,
+      weeklyXp: user.weeklyXp,
       earnedXp: finalAmount,
       tier: this.getLevelTier(user.level),
       oldTier: this.getLevelTier(oldLevel)
@@ -1342,6 +1361,7 @@ class DatabaseManager {
         level: stats.level || 0,
         xp: stats.xp || 0,
         totalXp: stats.totalXp || 0,
+        weeklyXp: stats.weeklyXp || 0,
         tier: this.getLevelTier(stats.level || 0)
       }))
       .sort((a, b) => (b.totalXp - a.totalXp) || (b.level - a.level))
@@ -1354,6 +1374,21 @@ class DatabaseManager {
     const sorted = Object.entries(data.users)
       .map(([id, stats]) => ({ id, totalXp: stats.totalXp || 0 }))
       .sort((a, b) => b.totalXp - a.totalXp);
+    const index = sorted.findIndex(item => item.id === userId);
+    return index !== -1 ? index + 1 : sorted.length + 1;
+  }
+
+  static getUserWeeklyRank(guildId, userId) {
+    const data = this.getLevelGuildData(guildId);
+    if (!data.users) return 1;
+    const now = Date.now();
+    const sorted = Object.entries(data.users)
+      .map(([id, stats]) => {
+        const isExpired = stats.weeklyResetAt && now > stats.weeklyResetAt;
+        const weeklyXp = isExpired ? 0 : (stats.weeklyXp || 0);
+        return { id, weeklyXp };
+      })
+      .sort((a, b) => b.weeklyXp - a.weeklyXp);
     const index = sorted.findIndex(item => item.id === userId);
     return index !== -1 ? index + 1 : sorted.length + 1;
   }

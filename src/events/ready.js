@@ -17,6 +17,22 @@ module.exports = {
     // Send Automatic Update / Deployment announcement to designated channel
     UpdateAnnouncer.checkAndSendUpdateAnnouncement(client).catch(err => console.error('[UPDATE ANNOUNCER ERROR]', err));
 
+    // Clear legacy guild-specific commands now that client.guilds.cache is populated
+    try {
+      const { REST, Routes } = require('discord.js');
+      const token = process.env.DISCORD_TOKEN || config.token;
+      const clientId = process.env.CLIENT_ID || config.clientId;
+      if (token && clientId && token !== 'your_bot_token_here') {
+        const rest = new REST({ version: '10' }).setToken(token);
+        for (const guild of client.guilds.cache.values()) {
+          rest.put(Routes.applicationGuildCommands(clientId, guild.id), { body: [] })
+            .catch(() => null);
+        }
+      }
+    } catch (err) {
+      console.warn('[GUILD CMD CLEANUP WARNING]:', err.message);
+    }
+
     const fakeServers = config.fakeServerCount || 5434;
 
     console.log(`\n==================================================`);
