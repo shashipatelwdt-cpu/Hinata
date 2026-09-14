@@ -5,6 +5,15 @@ const lordxEsports = require('./lordxEsports');
 const nomiRpg = require('./nomiRpg');
 const stylishAesthetic = require('./stylishAesthetic');
 const tactical5v5Game = require('./tactical5v5Game');
+const simple5v5Fps = require('./simple5v5Fps');
+
+catalog['simple-5v5'] = simple5v5Fps;
+catalog['wex-fps'] = simple5v5Fps;
+catalog['wex'] = simple5v5Fps;
+catalog['clean-fps'] = simple5v5Fps;
+catalog['simple'] = simple5v5Fps;
+catalog['simple-fps'] = simple5v5Fps;
+catalog['fps-simple'] = simple5v5Fps;
 
 catalog['tactical-5v5'] = tactical5v5Game;
 catalog['5v5'] = tactical5v5Game;
@@ -133,7 +142,18 @@ const THEME_ALIASES = {
   'nomi-japanese': 'nomi-japanese',
   'tokyo': 'nomi-japanese',
   'sakura': 'nomi-japanese',
-  '5v5': 'tactical-5v5',
+  'wex': 'simple-5v5',
+  'wex-fps': 'simple-5v5',
+  'wex_fps': 'simple-5v5',
+  'simple-5v5': 'simple-5v5',
+  'simple_5v5': 'simple-5v5',
+  'clean-fps': 'simple-5v5',
+  'clean_fps': 'simple-5v5',
+  'simple': 'simple-5v5',
+  'simple-fps': 'simple-5v5',
+  'simple_fps': 'simple-5v5',
+  'fps-simple': 'simple-5v5',
+  '5v5': 'simple-5v5',
   'tactical-5v5': 'tactical-5v5',
   'tactical': 'tactical-5v5',
   '5v5-game': 'tactical-5v5',
@@ -144,7 +164,7 @@ module.exports = {
   templates: catalog,
   getTemplate: (id) => {
     if (!id || typeof id !== 'string') {
-      return catalog['stylish-aesthetic'] || catalog['community-social'] || Object.values(catalog)[0];
+      return catalog['simple-5v5'] || catalog['stylish-aesthetic'] || catalog['community-social'] || Object.values(catalog)[0];
     }
     const raw = id.toLowerCase().trim();
     const cleanKey = raw.replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
@@ -159,8 +179,11 @@ module.exports = {
     if (THEME_ALIASES[cleanKey] && catalog[THEME_ALIASES[cleanKey]]) return catalog[THEME_ALIASES[cleanKey]];
 
     // 3. Keyword / Fuzzy matches
+    if (raw.includes('wex') || raw.includes('simple') || raw.includes('clean-fps')) {
+      return catalog['simple-5v5'];
+    }
     if (raw.includes('5v5') || raw.includes('tactical')) {
-      return catalog['tactical-5v5'];
+      return catalog['simple-5v5'] || catalog['tactical-5v5'];
     }
     if (raw.includes('good') || raw.includes('look') || raw.includes('stylish') || raw.includes('aesth') || raw.includes('vortex') || raw.includes('velvet')) {
       return catalog['good-looking'] || catalog['stylish-aesthetic'];
@@ -185,23 +208,40 @@ module.exports = {
 
     return catalog['good-looking'] || catalog['stylish-aesthetic'] || catalog['community-social'] || Object.values(catalog)[0];
   },
-  getAllTemplates: () => Object.values(catalog),
+  getAllTemplates: () => {
+    const unique = new Map();
+    for (const t of Object.values(catalog)) {
+      if (t && t.id && !unique.has(t.id)) unique.set(t.id, t);
+    }
+    return Array.from(unique.values());
+  },
   getCategories: () => {
     const cats = {};
+    const unique = new Map();
     for (const t of Object.values(catalog)) {
+      if (t && t.id && !unique.has(t.id)) unique.set(t.id, t);
+    }
+    for (const t of unique.values()) {
       if (!cats[t.category]) cats[t.category] = [];
       cats[t.category].push(t);
     }
     return cats;
   },
   searchTemplates: (query) => {
-    if (!query) return Object.values(catalog);
+    const unique = new Map();
+    for (const t of Object.values(catalog)) {
+      if (t && t.id && !unique.has(t.id)) unique.set(t.id, t);
+    }
+    const all = Array.from(unique.values());
+    if (!query) return all;
     const q = query.toLowerCase().trim();
-    return Object.values(catalog).filter(
+    return all.filter(
       t => t.id.toLowerCase().includes(q) ||
         t.name.toLowerCase().includes(q) ||
         t.category.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q) ||
+        (q.includes('wex') && t.id.includes('5v5')) ||
+        (q.includes('simple') && t.id.includes('simple')) ||
         (q.includes('aesth') && t.id.includes('aesthetic')) ||
         (q.includes('style') && t.id.includes('stylish')) ||
         (q.includes('nomi') && t.id.includes('nomi'))

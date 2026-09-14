@@ -137,7 +137,7 @@
           "boosts": "1539876769690296320",
           "goal": "1539876772995137560"
         },
-        "lastUpdated": 1788703224696
+        "lastUpdated": 1789398850716
       }
     },
     "1484076210412851324": {
@@ -145,14 +145,17 @@
       "modlog_channel": "1541853459781910530",
       "autorole": {
         "enabled": true,
-        "humanRoleId": "1541110258859253762",
+        "humanRoleId": "1541875050855145593",
         "botRoleId": "1541853323181695096"
       },
       "welcome": {
         "enabled": true,
-        "channelId": "1541853355129970770",
-        "roleId": "1541110258859253762",
-        "botRoleId": "1541853323181695096"
+        "channelId": "1541853389330190337",
+        "roleId": "1541875050855145593",
+        "botRoleId": "1541853323181695096",
+        "message": "Welcome {user} to **{server}**! You are our **#{count}** member. 🎉",
+        "dmWelcome": true,
+        "banner": null
       },
       "leave": {},
       "automod": {
@@ -163,29 +166,272 @@
         "maxMentions": 5,
         "antiProfanity": true,
         "antiLink": false,
-        "filterAdmins": false,
-        "customBadWords": []
+        "filterAdmins": true,
+        "customBadWords": [
+          "mc",
+          "bc",
+          "bkl",
+          "mkc",
+          "bkc",
+          "bsdk",
+          "bsdkv",
+          "dkp",
+          "tmkc",
+          "tmbc",
+          "tbkl",
+          "tkl",
+          "lodu",
+          "loda",
+          "lauda",
+          "lawda",
+          "lavda",
+          "lavde",
+          "laude",
+          "lowda",
+          "lund",
+          "lndi",
+          "lundi",
+          "chut",
+          "choot",
+          "chutiya",
+          "chutiye",
+          "chutiyapa",
+          "chutya",
+          "chutia",
+          "gand",
+          "gaand",
+          "gandu",
+          "gaandu",
+          "gandfat",
+          "gandfati",
+          "ganduwa",
+          "gandmasti",
+          "gandmari",
+          "madarchod",
+          "madarchodd",
+          "madarchoot",
+          "maderchod",
+          "maderchodd",
+          "madarxhod",
+          "madarcode",
+          "madarchd",
+          "bhenchod",
+          "behenchod",
+          "bhenchodd",
+          "behenchodd",
+          "bhenchoda",
+          "bhenchodh",
+          "bhenkxda",
+          "behnchod",
+          "bhosdike",
+          "bhosadike",
+          "bhosadi",
+          "bhosada",
+          "bhosda",
+          "bhosdiwale",
+          "bhosdiwala",
+          "bhosdika",
+          "bhosdk",
+          "bhosad",
+          "randi",
+          "rande",
+          "randwa",
+          "randibaaz",
+          "randibaazi",
+          "randikhana",
+          "r@ndi",
+          "harami",
+          "haraami",
+          "haramkhor",
+          "kamina",
+          "kamine",
+          "kameena",
+          "kameene",
+          "kutta",
+          "kutte",
+          "kuttiya",
+          "kutti",
+          "saala",
+          "saale",
+          "suar",
+          "suwar",
+          "suwarkapilla",
+          "tatte",
+          "tatta",
+          "jhaatu",
+          "jhatu",
+          "jhatua",
+          "chirkut",
+          "rakhail",
+          "bhadwe",
+          "bhadwa",
+          "bhadwaa",
+          "hijra",
+          "chakke",
+          "chakka",
+          "dalal",
+          "chodu",
+          "chodna",
+          "chudap",
+          "chudaap",
+          "chudakkad",
+          "mutthal",
+          "mutth",
+          "muth",
+          "muthal",
+          "chinal",
+          "chinaal",
+          "randirona",
+          "chudwana",
+          "maa ki chut",
+          "teri maa ki",
+          "teri bhen ki",
+          "bhen ke lode",
+          "lawde ke baal",
+          "behen ke lode",
+          "bhen ke takke",
+          "tatte ke baal",
+          "loduchand",
+          "ganduchand",
+          "chodampatti",
+          "lundchat",
+          "chutchat",
+          "chuchi",
+          "chuchiya",
+          "lund le",
+          "lauda le",
+          "lawda le",
+          "मादरचोद",
+          "मदरचोद",
+          "बहनचोद",
+          "बेहेनचोद",
+          "भेनचोद",
+          "भोसड़ीके",
+          "भोसड़ी",
+          "भोसड़ा",
+          "भोसड़ीके",
+          "गांडू",
+          "गांड",
+          "गाण्ड",
+          "चूतिया",
+          "चूतिये",
+          "चूत",
+          "लौड़ा",
+          "लौड़े",
+          "लंड",
+          "लण्ड",
+          "लोदू",
+          "रांडी",
+          "रान्डी",
+          "रंडी",
+          "हरामी",
+          "हरामखोर",
+          "कमीने",
+          "कमीना",
+          "साले",
+          "साला",
+          "कुत्ते",
+          "कुत्ता",
+          "सुअर",
+          "झाटू",
+          "झांटू",
+          "भड़वे",
+          "भड़वे",
+          "भड़वा",
+          "टट्टे",
+          "टट्टा",
+          "छक्के",
+          "छक्का",
+          "चोदू",
+          "चोदना",
+          "चुदाप",
+          "मुठ्ठल",
+          "मुठ",
+          "मुट्ठ",
+          "चिनाल",
+          "रंडार",
+          "दलाल",
+          "तेरी माँ की",
+          "माँ की चूत",
+          "बहन के लोड़े",
+          "fuck",
+          "fucker",
+          "fucking",
+          "fucked",
+          "fuckoff",
+          "motherfucker",
+          "motherfucking",
+          "bitch",
+          "bitches",
+          "bitching",
+          "bitchass",
+          "asshole",
+          "assholes",
+          "bastard",
+          "bastards",
+          "dick",
+          "dickhead",
+          "dicks",
+          "pussy",
+          "pussies",
+          "cunt",
+          "cunts",
+          "cock",
+          "cocksucker",
+          "slut",
+          "sluts",
+          "whore",
+          "whores",
+          "nigger",
+          "nigga",
+          "niggers",
+          "niggas",
+          "retard",
+          "retarded",
+          "stfu",
+          "faggot",
+          "fag",
+          "wanker",
+          "dumbass",
+          "jackass",
+          "dipshit",
+          "bullshit",
+          "shit",
+          "shitty",
+          "porn",
+          "porno",
+          "hentai",
+          "nude",
+          "nudes",
+          "tits",
+          "blowjob"
+        ],
+        "whitelistedRoles": [],
+        "whitelistedChannels": []
       },
-      "ticket": {},
+      "ticket": {
+        "categoryId": null,
+        "supportRoleId": null
+      },
       "selfroles": {},
       "rules": {
         "enabled": true,
         "channelId": "1541853362754949280",
-        "verifyRoleId": "1541110258859253762",
+        "verifyRoleId": "1541875050855145593",
         "templateId": "gaming",
-        "messageId": "1541853485186814023"
+        "messageId": "1546807837504835667"
       },
       "serverstats": {
         "enabled": true,
-        "categoryId": "1541853523669549137",
+        "categoryId": "1548243395246424094",
         "channels": {
-          "totalMembers": "1541853526462955520",
-          "humanMembers": "1541853529537519647",
-          "botMembers": "1541853532121079909",
-          "boosts": "1541853534977523713",
-          "goal": "1541853545727524987"
+          "totalMembers": "1548243396420960376",
+          "humanMembers": "1548243397326938143",
+          "botMembers": "1548243398186766356",
+          "boosts": "1548243400514605076",
+          "goal": "1548243401856524288"
         },
-        "lastUpdated": 1788703223678
+        "lastUpdated": 1789398850716
       },
       "channel_muted_bots": {
         "1541869960140300338": [
@@ -270,7 +516,7 @@
           "boosts": "1540992992477843548",
           "goal": "1540992995094958142"
         },
-        "lastUpdated": 1788703220020
+        "lastUpdated": 1789398850000
       }
     },
     "1505578149432524821": {
@@ -376,7 +622,7 @@
           "boosts": "1539881230990966834",
           "goal": "1539881233247371295"
         },
-        "lastUpdated": 1788703228172
+        "lastUpdated": 1789398851560
       }
     },
     "1540002515720863864": {
@@ -446,7 +692,7 @@
           "boosts": "1540005264495869973",
           "goal": "1540005267624955925"
         },
-        "lastUpdated": 1788703228570
+        "lastUpdated": 1789398851560
       }
     },
     "1489107089241673862": {
@@ -539,7 +785,7 @@
           "boosts": "1540782800465297580",
           "goal": "1540782802759450727"
         },
-        "lastUpdated": 1788703224077
+        "lastUpdated": 1789398850716
       }
     },
     "1540958511112917084": {
@@ -547,16 +793,23 @@
       "modlog_channel": "1540991991037435904",
       "autorole": {
         "enabled": true,
-        "humanRoleId": "1540991764691816452",
-        "botRoleId": "1540991761701273661"
+        "humanRoleId": "1541385101546487808",
+        "botRoleId": "1541430053114617866"
       },
       "welcome": {
         "enabled": true,
         "channelId": "1540991781511106610",
-        "roleId": "1540991764691816452",
-        "botRoleId": "1540991761701273661"
+        "roleId": "1541385101546487808",
+        "botRoleId": "1541430053114617866",
+        "message": "Welcome {user} to **{server}**! You are our **#{count}** member. 🎉",
+        "dmWelcome": true,
+        "banner": null
       },
-      "leave": {},
+      "leave": {
+        "enabled": true,
+        "channelId": "1540991801324740680",
+        "message": "**{username}** just left **{server}**. We now have **{count}** members. 👋"
+      },
       "automod": {
         "antiSpam": true,
         "antiInvite": true,
@@ -564,9 +817,249 @@
         "antiMassMention": true,
         "maxMentions": 5,
         "antiProfanity": true,
-        "antiLink": false,
+        "antiLink": true,
         "filterAdmins": false,
-        "customBadWords": []
+        "customBadWords": [
+          "mc",
+          "bc",
+          "bkl",
+          "mkc",
+          "bkc",
+          "bsdk",
+          "bsdkv",
+          "dkp",
+          "tmkc",
+          "tmbc",
+          "tbkl",
+          "tkl",
+          "lodu",
+          "loda",
+          "lauda",
+          "lawda",
+          "lavda",
+          "lavde",
+          "laude",
+          "lowda",
+          "lund",
+          "lndi",
+          "lundi",
+          "chut",
+          "choot",
+          "chutiya",
+          "chutiye",
+          "chutiyapa",
+          "chutya",
+          "chutia",
+          "gand",
+          "gaand",
+          "gandu",
+          "gaandu",
+          "gandfat",
+          "gandfati",
+          "ganduwa",
+          "gandmasti",
+          "gandmari",
+          "madarchod",
+          "madarchodd",
+          "madarchoot",
+          "maderchod",
+          "maderchodd",
+          "madarxhod",
+          "madarcode",
+          "madarchd",
+          "bhenchod",
+          "behenchod",
+          "bhenchodd",
+          "behenchodd",
+          "bhenchoda",
+          "bhenchodh",
+          "bhenkxda",
+          "behnchod",
+          "bhosdike",
+          "bhosadike",
+          "bhosadi",
+          "bhosada",
+          "bhosda",
+          "bhosdiwale",
+          "bhosdiwala",
+          "bhosdika",
+          "bhosdk",
+          "bhosad",
+          "randi",
+          "rande",
+          "randwa",
+          "randibaaz",
+          "randibaazi",
+          "randikhana",
+          "r@ndi",
+          "harami",
+          "haraami",
+          "haramkhor",
+          "kamina",
+          "kamine",
+          "kameena",
+          "kameene",
+          "kutta",
+          "kutte",
+          "kuttiya",
+          "kutti",
+          "saala",
+          "saale",
+          "suar",
+          "suwar",
+          "suwarkapilla",
+          "tatte",
+          "tatta",
+          "jhaatu",
+          "jhatu",
+          "jhatua",
+          "chirkut",
+          "rakhail",
+          "bhadwe",
+          "bhadwa",
+          "bhadwaa",
+          "hijra",
+          "chakke",
+          "chakka",
+          "dalal",
+          "chodu",
+          "chodna",
+          "chudap",
+          "chudaap",
+          "chudakkad",
+          "mutthal",
+          "mutth",
+          "muth",
+          "muthal",
+          "chinal",
+          "chinaal",
+          "randirona",
+          "chudwana",
+          "maa ki chut",
+          "teri maa ki",
+          "teri bhen ki",
+          "bhen ke lode",
+          "lawde ke baal",
+          "behen ke lode",
+          "bhen ke takke",
+          "tatte ke baal",
+          "loduchand",
+          "ganduchand",
+          "chodampatti",
+          "lundchat",
+          "chutchat",
+          "chuchi",
+          "chuchiya",
+          "lund le",
+          "lauda le",
+          "lawda le",
+          "मादरचोद",
+          "मदरचोद",
+          "बहनचोद",
+          "बेहेनचोद",
+          "भेनचोद",
+          "भोसड़ीके",
+          "भोसड़ी",
+          "भोसड़ा",
+          "भोसड़ीके",
+          "गांडू",
+          "गांड",
+          "गाण्ड",
+          "चूतिया",
+          "चूतिये",
+          "चूत",
+          "लौड़ा",
+          "लौड़े",
+          "लंड",
+          "लण्ड",
+          "लोदू",
+          "रांडी",
+          "रान्डी",
+          "रंडी",
+          "हरामी",
+          "हरामखोर",
+          "कमीने",
+          "कमीना",
+          "साले",
+          "साला",
+          "कुत्ते",
+          "कुत्ता",
+          "सुअर",
+          "झाटू",
+          "झांटू",
+          "भड़वे",
+          "भड़वे",
+          "भड़वा",
+          "टट्टे",
+          "टट्टा",
+          "छक्के",
+          "छक्का",
+          "चोदू",
+          "चोदना",
+          "चुदाप",
+          "मुठ्ठल",
+          "मुठ",
+          "मुट्ठ",
+          "चिनाल",
+          "रंडार",
+          "दलाल",
+          "तेरी माँ की",
+          "माँ की चूत",
+          "बहन के लोड़े",
+          "fuck",
+          "fucker",
+          "fucking",
+          "fucked",
+          "fuckoff",
+          "motherfucker",
+          "motherfucking",
+          "bitch",
+          "bitches",
+          "bitching",
+          "bitchass",
+          "asshole",
+          "assholes",
+          "bastard",
+          "bastards",
+          "dick",
+          "dickhead",
+          "dicks",
+          "pussy",
+          "pussies",
+          "cunt",
+          "cunts",
+          "cock",
+          "cocksucker",
+          "slut",
+          "sluts",
+          "whore",
+          "whores",
+          "nigger",
+          "nigga",
+          "niggers",
+          "niggas",
+          "retard",
+          "retarded",
+          "stfu",
+          "faggot",
+          "fag",
+          "wanker",
+          "dumbass",
+          "jackass",
+          "dipshit",
+          "bullshit",
+          "shit",
+          "shitty",
+          "porn",
+          "porno",
+          "hentai",
+          "nude",
+          "nudes",
+          "tits",
+          "blowjob"
+        ],
+        "whitelistedRoles": [],
+        "whitelistedChannels": []
       },
       "ticket": {
         "categoryId": "1540992001414266921",
@@ -593,14 +1086,172 @@
               "name": "Updates Ping"
             }
           ]
+        },
+        "selfrole_menu_gender_1788858680443_425": {
+          "type": "gender",
+          "roles": [
+            {
+              "id": "1546810155885142091",
+              "name": "Male (He/Him)"
+            },
+            {
+              "id": "1546810157496012840",
+              "name": "Female (She/Her)"
+            },
+            {
+              "id": "1546810158422822972",
+              "name": "Non-Binary (They/Them)"
+            },
+            {
+              "id": "1546810158833999894",
+              "name": "Any Pronouns"
+            }
+          ]
+        },
+        "selfrole_menu_regions_1788858681911_430": {
+          "type": "regions",
+          "roles": [
+            {
+              "id": "1546810160390086706",
+              "name": "India"
+            },
+            {
+              "id": "1546810160922759188",
+              "name": "Asia"
+            },
+            {
+              "id": "1546810161631330414",
+              "name": "North America"
+            },
+            {
+              "id": "1546810162235576354",
+              "name": "Europe"
+            },
+            {
+              "id": "1546810163577622598",
+              "name": "South America"
+            },
+            {
+              "id": "1546810164164821063",
+              "name": "Australia / Oceania"
+            },
+            {
+              "id": "1546810164915732560",
+              "name": "Middle East"
+            },
+            {
+              "id": "1546810165603467304",
+              "name": "Africa"
+            }
+          ]
+        },
+        "selfrole_menu_age_1788858682866_264": {
+          "type": "age",
+          "roles": [
+            {
+              "id": "1546810167524458557",
+              "name": "18+ Adult"
+            },
+            {
+              "id": "1546810168598077511",
+              "name": "Under 18"
+            }
+          ]
+        },
+        "selfrole_menu_gaming_1788858684941_521": {
+          "type": "gaming",
+          "roles": [
+            {
+              "id": "1546810172259958865",
+              "name": "Valorant"
+            },
+            {
+              "id": "1546810173308276847",
+              "name": "GTA V"
+            },
+            {
+              "id": "1546810174319104060",
+              "name": "Minecraft"
+            },
+            {
+              "id": "1546810175527321602",
+              "name": "BGMI / PUBG"
+            },
+            {
+              "id": "1546810176424644638",
+              "name": "Free Fire"
+            },
+            {
+              "id": "1546810177108447312",
+              "name": "Roblox"
+            },
+            {
+              "id": "1546810177871941652",
+              "name": "Call of Duty"
+            },
+            {
+              "id": "1546810178421268610",
+              "name": "Genshin Impact"
+            }
+          ]
+        },
+        "selfrole_menu_notifications_1788858685111_282": {
+          "type": "notifications",
+          "roles": [
+            {
+              "id": "1540992016735797388",
+              "name": "Announcement Ping"
+            },
+            {
+              "id": "1540992019038470174",
+              "name": "Giveaway Ping"
+            },
+            {
+              "id": "1540992021408387092",
+              "name": "Event Ping"
+            },
+            {
+              "id": "1540992023585099876",
+              "name": "Updates Ping"
+            }
+          ]
+        },
+        "selfrole_menu_interests_1788858686408_247": {
+          "type": "interests",
+          "roles": [
+            {
+              "id": "1546810180744773632",
+              "name": "Music & Audio"
+            },
+            {
+              "id": "1546810181613260891",
+              "name": "Artist & Designer"
+            },
+            {
+              "id": "1546810181822840914",
+              "name": "Developer & Tech"
+            },
+            {
+              "id": "1546810182577688662",
+              "name": "Content Creator"
+            },
+            {
+              "id": "1546810183341314074",
+              "name": "Anime & Manga"
+            },
+            {
+              "id": "1546810184515457065",
+              "name": "Fitness & Gym"
+            }
+          ]
         }
       },
       "rules": {
         "enabled": true,
         "channelId": "1540991784614756364",
         "verifyRoleId": "1540991764691816452",
-        "templateId": "esports",
-        "messageId": "1540992007038832651"
+        "templateId": "gaming",
+        "messageId": "1546809973961531433"
       },
       "serverstats": {
         "enabled": true,
@@ -612,7 +1263,7 @@
           "boosts": "1540992042899865650",
           "goal": "1540992044762398751"
         },
-        "lastUpdated": 1788703230408
+        "lastUpdated": 1789398852060
       },
       "channel_muted_bots": {
         "1540991938453446686": [
@@ -724,9 +1375,28 @@
       "moderator_id": "1429361029179113517",
       "reason": "testing",
       "created_at": "2026-08-17T17:26:34.597Z"
+    },
+    {
+      "id": 2,
+      "guild_id": "1484076210412851324",
+      "user_id": "1038118857790988348",
+      "moderator_id": "1034525097567985784",
+      "reason": "no promotional/scam links and any type of message around scam or free money is not allowed",
+      "created_at": "2026-09-14T11:49:02.563Z"
     }
   ],
-  "tickets": {},
+  "tickets": {
+    "1546810686313603132": {
+      "ticket_id": "1546810686313603132",
+      "guild_id": "1540958511112917084",
+      "channel_id": "1546810686313603132",
+      "user_id": "1429361029179113517",
+      "category": "general",
+      "status": "closed",
+      "created_at": "2026-09-08T09:13:26.059Z",
+      "closed_at": "2026-09-09T05:59:43.709Z"
+    }
+  },
   "giveaways": {},
   "invites": {
     "test_guild_123": {
@@ -745,8 +1415,8 @@
         "bonus": 0
       },
       "1507607458539896943": {
-        "regular": 14,
-        "leaves": 0,
+        "regular": 15,
+        "leaves": 1,
         "fake": 0,
         "bonus": 0
       },
@@ -801,7 +1471,7 @@
         "bonus": 0
       },
       "1034525097567985784": {
-        "regular": 7,
+        "regular": 8,
         "leaves": 0,
         "fake": 0,
         "bonus": 0
@@ -813,7 +1483,7 @@
         "bonus": 0
       },
       "1541472225021010071": {
-        "regular": 0,
+        "regular": 1,
         "leaves": 0,
         "fake": 0,
         "bonus": 0
@@ -841,7 +1511,7 @@
         "bonus": 0
       },
       "1414529866115710977": {
-        "regular": 0,
+        "regular": 1,
         "leaves": 0,
         "fake": 0,
         "bonus": 0
@@ -1063,6 +1733,12 @@
         "code": "26fQ7fApb",
         "isFake": false,
         "joinedAt": "2026-08-29T09:43:44.175Z"
+      },
+      "1541785771126554665": {
+        "inviterId": "1507607458539896943",
+        "code": "zJ5W6z5pn",
+        "isFake": false,
+        "joinedAt": "2026-09-12T17:13:24.613Z"
       }
     },
     "1489107089241673862": {
@@ -1121,6 +1797,26 @@
         "code": "T4teFGqW5",
         "isFake": false,
         "joinedAt": "2026-08-25T16:55:18.039Z"
+      },
+      "1273663165959376897": {
+        "inviterId": "1541472225021010071",
+        "code": "aGHGShmY6",
+        "isFake": false,
+        "joinedAt": "2026-09-13T06:02:34.584Z"
+      },
+      "1317425630169665597": {
+        "inviterId": "1034525097567985784",
+        "code": "Gj3u4r6VA",
+        "isFake": false,
+        "joinedAt": "2026-09-13T14:06:56.492Z"
+      }
+    },
+    "1440300728001495052": {
+      "1433347663826391140": {
+        "inviterId": "1414529866115710977",
+        "code": "9Qczud9kM",
+        "isFake": false,
+        "joinedAt": "2026-09-14T04:26:00.157Z"
       }
     }
   },
@@ -1128,23 +1824,82 @@
     "last_announced_commit": "8ebbf3e"
   },
   "playlists": {},
-  "counting": {},
+  "counting": {
+    "1484076210412851324": {
+      "channelId": "1542027308435640421",
+      "currentCount": 2,
+      "lastUserId": "1429361029179113517",
+      "highScore": 13,
+      "highScoreDate": "2026-09-12T17:10:45.436Z",
+      "totalCounts": 33,
+      "userStats": {
+        "1429361029179113517": {
+          "counts": 5,
+          "fails": 0,
+          "lastCountAt": "2026-09-14T14:23:47.695Z"
+        },
+        "1541472225021010071": {
+          "counts": 7,
+          "fails": 2,
+          "lastCountAt": "2026-09-13T17:14:02.938Z"
+        },
+        "1034525097567985784": {
+          "counts": 12,
+          "fails": 0,
+          "lastCountAt": "2026-09-13T16:43:58.918Z"
+        },
+        "1517209648627716229": {
+          "counts": 1,
+          "fails": 0,
+          "lastCountAt": "2026-09-10T05:10:20.770Z"
+        },
+        "1492869224773980180": {
+          "counts": 1,
+          "fails": 1,
+          "lastCountAt": "2026-09-10T05:11:14.959Z"
+        },
+        "1015622605019025448": {
+          "counts": 2,
+          "fails": 1,
+          "lastCountAt": "2026-09-10T10:17:35.222Z"
+        },
+        "833006975566348288": {
+          "counts": 5,
+          "fails": 0,
+          "lastCountAt": "2026-09-13T12:50:30.484Z"
+        }
+      }
+    },
+    "1489107089241673862": {
+      "channelId": null,
+      "currentCount": 0,
+      "lastUserId": null,
+      "highScore": 0,
+      "highScoreDate": null,
+      "totalCounts": 0,
+      "userStats": {}
+    },
+    "1540958511112917084": {
+      "channelId": null,
+      "currentCount": 0,
+      "lastUserId": null,
+      "highScore": 0,
+      "highScoreDate": null,
+      "totalCounts": 0,
+      "userStats": {}
+    },
+    "1440300728001495052": {
+      "channelId": null,
+      "currentCount": 0,
+      "lastUserId": null,
+      "highScore": 0,
+      "highScoreDate": null,
+      "totalCounts": 0,
+      "userStats": {}
+    }
+  },
   "afk": {},
   "levels": {
-    "999": {
-      "config": {
-        "enabled": true,
-        "channelType": "current",
-        "channelId": null,
-        "message": "Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!",
-        "multiplier": 1,
-        "stackRoles": true,
-        "ignoredChannels": [],
-        "ignoredRoles": [],
-        "roleRewards": {}
-      },
-      "users": {}
-    },
     "1505578928494874674": {
       "config": {
         "enabled": true,
@@ -1178,6 +1933,299 @@
         "roleRewards": {}
       },
       "users": {}
+    },
+    "1484076210412851324": {
+      "config": {
+        "enabled": true,
+        "channelType": "custom",
+        "channelId": "1546429691731386408",
+        "message": "GG {user}, you just leveled up to **level {level}**!",
+        "multiplier": 1,
+        "stackRoles": true,
+        "ignoredChannels": [],
+        "ignoredRoles": [],
+        "roleRewards": {
+          "5": "1546777310793961532",
+          "10": "1546777311502929980",
+          "20": "1546777312161431583",
+          "35": "1546777313394556948",
+          "50": "1546777314786938910"
+        }
+      },
+      "users": {
+        "1429361029179113517": {
+          "xp": 20,
+          "level": 0,
+          "totalXp": 20,
+          "weeklyXp": 20,
+          "weeklyResetAt": 1789462527373,
+          "lastXpAt": 1789396632169,
+          "theme": {
+            "color": "#5865F2"
+          }
+        },
+        "1484161966644789318": {
+          "xp": 49,
+          "level": 0,
+          "totalXp": 49,
+          "weeklyXp": 49,
+          "weeklyResetAt": 1789463330887,
+          "lastXpAt": 1789389285110
+        },
+        "1527723627238133830": {
+          "xp": 50,
+          "level": 0,
+          "totalXp": 50,
+          "weeklyXp": 50,
+          "weeklyResetAt": 1789471745159,
+          "lastXpAt": 1788866945159
+        },
+        "1034525097567985784": {
+          "xp": 19,
+          "level": 1,
+          "totalXp": 119,
+          "weeklyXp": 119,
+          "weeklyResetAt": 1789494246851,
+          "lastXpAt": 1789398262171
+        },
+        "1541472225021010071": {
+          "xp": 19,
+          "level": 0,
+          "totalXp": 19,
+          "weeklyXp": 19,
+          "weeklyResetAt": 1789545843406,
+          "lastXpAt": 1789346132913
+        },
+        "1015622605019025448": {
+          "xp": 11,
+          "level": 0,
+          "totalXp": 11,
+          "weeklyXp": 11,
+          "weeklyResetAt": 1789638638397,
+          "lastXpAt": 1789033938315
+        },
+        "1492869224773980180": {
+          "xp": 36,
+          "level": 0,
+          "totalXp": 36,
+          "weeklyXp": 36,
+          "weeklyResetAt": 1789638666686,
+          "lastXpAt": 1789279559524
+        },
+        "1038118857790988348": {
+          "xp": 25,
+          "level": 0,
+          "totalXp": 25,
+          "weeklyXp": 25,
+          "weeklyResetAt": 1789822025706,
+          "lastXpAt": 1789382599330
+        },
+        "833006975566348288": {
+          "xp": 6,
+          "level": 0,
+          "totalXp": 6,
+          "weeklyXp": 6,
+          "weeklyResetAt": 1789834237071,
+          "lastXpAt": 1789229437071
+        },
+        "1468179560741994527": {
+          "xp": 1,
+          "level": 0,
+          "totalXp": 1,
+          "weeklyXp": 1,
+          "weeklyResetAt": 1789855175309,
+          "lastXpAt": 1789250375309
+        },
+        "1273663165959376897": {
+          "xp": 12,
+          "level": 1,
+          "totalXp": 112,
+          "weeklyXp": 112,
+          "weeklyResetAt": 1789884261736,
+          "lastXpAt": 1789389092285
+        },
+        "1318485174006059048": {
+          "xp": 14,
+          "level": 0,
+          "totalXp": 14,
+          "weeklyXp": 14,
+          "weeklyResetAt": 1789900531761,
+          "lastXpAt": 1789295869363
+        }
+      }
+    },
+    "1489107089241673862": {
+      "config": {
+        "enabled": true,
+        "channelType": "current",
+        "channelId": null,
+        "message": "Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!",
+        "multiplier": 1,
+        "stackRoles": true,
+        "ignoredChannels": [],
+        "ignoredRoles": [],
+        "roleRewards": {}
+      },
+      "users": {
+        "1527723627238133830": {
+          "xp": 50,
+          "level": 0,
+          "totalXp": 50,
+          "weeklyXp": 50,
+          "weeklyResetAt": 1789472656872,
+          "lastXpAt": 1788867856872
+        },
+        "1484161966644789318": {
+          "xp": 49,
+          "level": 0,
+          "totalXp": 49,
+          "weeklyXp": 49,
+          "weeklyResetAt": 1789473013025,
+          "lastXpAt": 1788868213025
+        }
+      }
+    },
+    "1540958511112917084": {
+      "config": {
+        "enabled": true,
+        "channelType": "current",
+        "channelId": null,
+        "message": "Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!",
+        "multiplier": 1,
+        "stackRoles": true,
+        "ignoredChannels": [],
+        "ignoredRoles": [],
+        "roleRewards": {}
+      },
+      "users": {
+        "1499355690597351462": {
+          "xp": 11,
+          "level": 0,
+          "totalXp": 11,
+          "weeklyXp": 11,
+          "weeklyResetAt": 1789473351036,
+          "lastXpAt": 1788881933605
+        },
+        "1507607458539896943": {
+          "xp": 15,
+          "level": 0,
+          "totalXp": 15,
+          "weeklyXp": 15,
+          "weeklyResetAt": 1789473364331,
+          "lastXpAt": 1789037743711
+        },
+        "1492895912681541652": {
+          "xp": 11,
+          "level": 0,
+          "totalXp": 11,
+          "weeklyXp": 11,
+          "weeklyResetAt": 1789482408816,
+          "lastXpAt": 1789275770857
+        },
+        "1528466292825133269": {
+          "xp": 2,
+          "level": 0,
+          "totalXp": 2,
+          "weeklyXp": 2,
+          "weeklyResetAt": 1789579637672,
+          "lastXpAt": 1789227625366
+        },
+        "1462028730066145406": {
+          "xp": 26,
+          "level": 0,
+          "totalXp": 26,
+          "weeklyXp": 26,
+          "weeklyResetAt": 1789726405366,
+          "lastXpAt": 1789121605366
+        },
+        "1429361029179113517": {
+          "xp": 29,
+          "level": 0,
+          "totalXp": 29,
+          "weeklyXp": 29,
+          "weeklyResetAt": 1789798526708,
+          "lastXpAt": 1789275588912
+        },
+        "1492862810089066732": {
+          "xp": 1,
+          "level": 0,
+          "totalXp": 1,
+          "weeklyXp": 1,
+          "weeklyResetAt": 1789832436546,
+          "lastXpAt": 1789227636546
+        }
+      }
+    },
+    "1440300728001495052": {
+      "config": {
+        "enabled": true,
+        "channelType": "current",
+        "channelId": null,
+        "message": "Congrats {user} it looks like you levelled up! You are now level {level}, keep being active to gain more XP and unlock more roles!",
+        "multiplier": 1,
+        "stackRoles": true,
+        "ignoredChannels": [],
+        "ignoredRoles": [],
+        "roleRewards": {}
+      },
+      "users": {
+        "1433798733677461669": {
+          "xp": 57,
+          "level": 0,
+          "totalXp": 57,
+          "weeklyXp": 57,
+          "weeklyResetAt": 1789523202253,
+          "lastXpAt": 1788947820076
+        },
+        "1474862592026611855": {
+          "xp": 50,
+          "level": 0,
+          "totalXp": 50,
+          "weeklyXp": 50,
+          "weeklyResetAt": 1789551421866,
+          "lastXpAt": 1788946621866
+        },
+        "1458147479546757190": {
+          "xp": 3,
+          "level": 0,
+          "totalXp": 3,
+          "weeklyXp": 3,
+          "weeklyResetAt": 1789830095227,
+          "lastXpAt": 1789225315464
+        },
+        "1447191785184039007": {
+          "xp": 5,
+          "level": 0,
+          "totalXp": 5,
+          "weeklyXp": 5,
+          "weeklyResetAt": 1789874561903,
+          "lastXpAt": 1789269761903
+        },
+        "1451977136981278935": {
+          "xp": 26,
+          "level": 0,
+          "totalXp": 26,
+          "weeklyXp": 26,
+          "weeklyResetAt": 1789888545097,
+          "lastXpAt": 1789283745097
+        },
+        "1428248955006746766": {
+          "xp": 4,
+          "level": 0,
+          "totalXp": 4,
+          "weeklyXp": 4,
+          "weeklyResetAt": 1789889541308,
+          "lastXpAt": 1789284741308
+        },
+        "1414529866115710977": {
+          "xp": 14,
+          "level": 0,
+          "totalXp": 14,
+          "weeklyXp": 14,
+          "weeklyResetAt": 1789920344428,
+          "lastXpAt": 1789316102199
+        }
+      }
     }
   }
 }

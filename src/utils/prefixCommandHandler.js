@@ -1385,6 +1385,173 @@ class PrefixCommandHandler {
       }
 
       // ==========================================
+      // HONOR COMMANDS
+      // ==========================================
+      case 'honor':
+      case 'rep': {
+        const honorConfig = DatabaseManager.getHonorConfig(message.guild.id);
+        if (honorConfig.enabled === false) {
+          return message.reply({ embeds: [EmbedUtils.warning('Honor System Disabled', 'The Honor system is currently disabled on this server.')] });
+        }
+
+        const mentioned = message.mentions.users.first();
+        if (!mentioned) {
+          return message.reply({
+            embeds: [
+              EmbedUtils.info(
+                'How to give Honor',
+                `**Usage:** \`h honor @user [friendly | shotcaller | helpful | mvp] [reason]\`\n\n` +
+                `**Examples:**\n` +
+                `• \`h honor @Gamer friendly Great game!\`\n` +
+                `• \`h honor @Pro mvp 1v4 clutch round!\`\n` +
+                `• \`h honor @Friend helpful taught me the lineup\``
+              )
+            ]
+          });
+        }
+
+        if (mentioned.id === message.author.id) {
+          return message.reply({ embeds: [EmbedUtils.error('Action Denied', 'You cannot give Honor to yourself!')] });
+        }
+        if (mentioned.bot) {
+          return message.reply({ embeds: [EmbedUtils.error('Action Denied', 'Bots cannot receive Honor.')] });
+        }
+
+        const validCategories = ['friendly', 'shotcaller', 'helpful', 'mvp'];
+        let chosenCategory = 'friendly';
+        let customReason = '';
+
+        const tokens = args.filter(a => !a.startsWith('<@'));
+        if (tokens.length > 0) {
+          const firstToken = tokens[0].toLowerCase();
+          if (validCategories.includes(firstToken)) {
+            chosenCategory = firstToken;
+            customReason = tokens.slice(1).join(' ');
+          } else {
+            customReason = tokens.join(' ');
+          }
+        }
+
+        const result = DatabaseManager.addHonor(message.guild.id, mentioned.id, message.author.id, chosenCategory, customReason);
+        if (!result.success) {
+          if (result.error === 'NO_TOKENS') {
+            const timeStr = `<t:${Math.floor((Date.now() + result.resetInMs) / 1000)}:R>`;
+            return message.reply({ embeds: [EmbedUtils.warning('No Tokens Left', `You have used your **3 daily tokens**! They refresh ${timeStr}.`)] });
+          }
+          if (result.error === 'USER_COOLDOWN') {
+            const timeStr = `<t:${Math.floor((Date.now() + result.resetInMs) / 1000)}:R>`;
+            return message.reply({ embeds: [EmbedUtils.warning('Cooldown Active', `You recently honored **${mentioned.username}**! Cooldown ends ${timeStr}.`)] });
+          }
+          return message.reply({ embeds: [EmbedUtils.error('Honor Failed', 'Could not record honor commendation.')] });
+        }
+
+        const catEmojis = { friendly: '🤝', shotcaller: '🎯', helpful: '💡', mvp: '⚡' };
+        const catTitles = { friendly: 'Friendly & Tilt-Proof', shotcaller: 'Shotcaller & Leader', helpful: 'Helpful & Mentor', mvp: 'Clutch & MVP' };
+
+        const honorEmbed = new EmbedBuilder()
+          .setColor('#57F287')
+          .setTitle(`${catEmojis[chosenCategory]} Honor Commendation Sent!`)
+          .setDescription(
+            `**${message.author.username}** commended **${mentioned}** for **${catTitles[chosenCategory]}**!\n` +
+            (customReason ? `> *"${customReason}"*\n\n` : '\n') +
+            `• **Category:** ${catEmojis[chosenCategory]} \`${catTitles[chosenCategory]}\`\n` +
+            `• **Total Honor:** \`${result.points}\` Points (Level ${result.level})\n` +
+            `• **Tokens Left Today:** \`${result.tokensLeft}/3\``
+          )
+          .setFooter({ text: 'Play with honor • Earn community respect' })
+          .setTimestamp();
+
+        await message.reply({ embeds: [honorEmbed] });
+
+        // Check level up and auto-role
+        if (result.leveledUp) {
+          const rewardRoleId = honorConfig.roles?.[String(result.level)];
+          let unlockedRole = null;
+          const targetMember = message.guild.members.cache.get(mentioned.id) || await message.guild.members.fetch(mentioned.id).catch(() => null);
+
+          if (rewardRoleId && targetMember) {
+            const roleObj = message.guild.roles.cache.get(rewardRoleId) || await message.guild.roles.fetch(rewardRoleId).catch(() => null);
+            if (roleObj) {
+              const botMem = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
+              if (botMem && botMem.permissions.has(PermissionFlagsBits.ManageRoles) && botMem.roles.highest.position > roleObj.position) {
+                await targetMember.roles.add(roleObj, `Honor Level ${result.level}`).catch(() => null);
+                unlockedRole = roleObj;
+              }
+            }
+          }
+
+          const promoEmbed = new EmbedBuilder()
+            .setColor('#F1C40F')
+            .setTitle(`👑 HONOR PROMOTION: LEVEL ${result.level}!`)
+            .setDescription(
+              `🌟 Congratulations ${mentioned}! You ascended to **Honor Level ${result.level}**!\n` +
+              (unlockedRole ? `🎉 **Unlocked Role:** <@&${unlockedRole.id}>!` : '')
+            )
+            .setThumbnail(mentioned.displayAvatarURL({ dynamic: true }))
+            .setTimestamp();
+
+          await message.channel.send({ content: `${mentioned}`, embeds: [promoEmbed] }).catch(() => null);
+        }
+        return true;
+      }
+
+      case 'honorprofile':
+      case 'honorcard':
+      case 'repcard': {
+        const target = message.mentions.users.first() || message.author;
+        const userData = DatabaseManager.getHonorUser(message.guild.id, target.id);
+        const level = userData.level || 1;
+        const points = userData.points || 0;
+        const cats = userData.categories || { friendly: 0, shotcaller: 0, helpful: 0, mvp: 0 };
+        const nextTier = DatabaseManager.getHonorPointsForNextLevel(level);
+        const rank = DatabaseManager.getUserHonorRank(message.guild.id, target.id) || 'Unranked';
+
+        const profileEmbed = new EmbedBuilder()
+          .setColor('#5865F2')
+          .setTitle(`🎖️ Honor Profile • ${target.username}`)
+          .setThumbnail(target.displayAvatarURL({ dynamic: true, size: 256 }))
+          .setDescription(
+            `**Honor Rank:** **Level ${level} — ${nextTier.title}**\n` +
+            `**Total Honor Points:** \`${points}\` Points\n` +
+            `**Server Rank:** \`#${rank}\`\n\n` +
+            `### 📊 Commendations Breakdown:\n` +
+            `• 🤝 **Friendly:** \`${cats.friendly || 0}\`\n` +
+            `• 🎯 **Shotcaller:** \`${cats.shotcaller || 0}\`\n` +
+            `• 💡 **Helpful:** \`${cats.helpful || 0}\`\n` +
+            `• ⚡ **MVP / Clutch:** \`${cats.mvp || 0}\`\n\n` +
+            `• 🪙 **Daily Tokens Left:** \`${userData.tokensRemaining ?? 3}/3\``
+          )
+          .setFooter({ text: 'Give honor with "h honor @user <category>"' })
+          .setTimestamp();
+
+        await message.reply({ embeds: [profileEmbed] });
+        return true;
+      }
+
+      case 'honorlb':
+      case 'honorleaderboard': {
+        const topList = DatabaseManager.getHonorLeaderboard(message.guild.id, 10);
+        if (topList.length === 0) {
+          return message.reply({ embeds: [EmbedUtils.info('Honor Leaderboard Empty', 'No members have received Honor commendations yet! Use `h honor @user` to commend teammates.')] });
+        }
+
+        const lines = topList.map((entry, idx) => {
+          const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'][idx] || `#${idx + 1}`;
+          return `${medal} <@${entry.userId}> • **Level ${entry.level}** (\`${entry.points}\` Honor Points)`;
+        });
+
+        const lbEmbed = new EmbedBuilder()
+          .setColor(config.embedColors?.primary || '#5865F2')
+          .setTitle(`👑 ${message.guild.name} • Honor Leaderboard`)
+          .setDescription(lines.join('\n\n'))
+          .setFooter({ text: 'Hinata Honor Engine' })
+          .setTimestamp();
+
+        await message.reply({ embeds: [lbEmbed] });
+        return true;
+      }
+
+      // ==========================================
       // HELP COMMAND
       // ==========================================
       case 'help':
@@ -1395,8 +1562,7 @@ class PrefixCommandHandler {
             `You can use both **Prefix Commands (\`h <command>\`)** and **Slash Commands (\`/<command>\`)**!\n\n` +
             `**🎵 Music Commands:**\n` +
             `• \`h play <song / url>\` — Play any song or playlist (\`h p <name>\`)\n` +
-            `• \`h pause\` — Pause current music playback\n` +
-            `• \`h resume\` — Resume paused track\n` +
+            `• \`h pause\` / \`h resume\` — Pause or unpause music playback\n` +
             `• \`h skip [to]\` — Skip song or jump to queue track (\`h s\`)\n` +
             `• \`h stop\` — Stop music, clear queue & leave voice (\`h dc\`)\n` +
             `• \`h queue [page]\` — View songs queue (\`h q\`)\n` +
@@ -1406,16 +1572,21 @@ class PrefixCommandHandler {
             `• \`h shuffle\` — Randomize songs in queue\n` +
             `• \`h lyrics [song]\` — Search song lyrics (\`h ly\`)\n` +
             `• \`h panel\` — Create interactive music control panel\n\n` +
+            `**🎖️ Honor & Reputation Commands:**\n` +
+            `• \`h honor @user [category] [reason]\` — Commend teammate & grant Honor\n` +
+            `• \`h honorprofile [@user]\` — View Honor level, badges & progress\n` +
+            `• \`h honorlb\` — View Top 10 most honorable members\n\n` +
             `**🛠️ Utility & Moderation Commands:**\n` +
             `• \`h rank [@user]\` — View AmariBot-style Level & XP rank card\n` +
-            `• \`h ghostping\` — View who ghost pinged whom and what was the message\n` +
+            `• \`h ghostping\` — View who ghost pinged whom\n` +
             `• \`h snipe\` — View recently deleted message in channel\n` +
-            `• \`h announce\` — Send server announcements with custom embeds & pings\n` +
+            `• \`h announce\` — Send server announcements with custom embeds\n` +
             `• \`h ping\` — Check bot latency & status\n` +
             `• \`h avatar [@user]\` — View user avatar\n` +
             `• \`h help\` — Show this help manual\n` +
             `• \`/setup\` — Server Auto-Setup & Templates\n` +
-            `• \`/automod\` — Anti-Spam, Anti-Link & Bad Words filter`
+            `• \`/automod\` — Anti-Spam, Anti-Link & Anti-Scam filter\n` +
+            `• \`/honor setup\` — Configure Honor role rewards & auto-roles`
           )
           .setColor(config.embedColors?.primary || '#5865F2')
           .setFooter({ text: 'Hinata Bot • Powered by Antigravity' })

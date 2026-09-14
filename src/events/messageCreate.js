@@ -4,6 +4,8 @@ const BadWordsEngine = require('../utils/badWords');
 const ModLogger = require('../utils/logger');
 const EmbedUtils = require('../utils/embeds');
 const PrefixCommandHandler = require('../utils/prefixCommandHandler');
+const ScamDetector = require('../utils/scamDetector');
+const TimeUtils = require('../utils/time');
 const config = require('../../config.json');
 
 // In-memory spam tracker: Map<userId, Array<timestamps>>
@@ -382,11 +384,22 @@ module.exports = {
 
     let violation = null;
     let violationDetail = '';
+    let isScamViolation = false;
+    let scamData = null;
 
-    const content = message.content.toLowerCase();
+    // 1. Anti-Scam & Malicious Image/QR Engine (Real-Moderator Defense)
+    if (automod.antiScam !== false) {
+      const scamCheck = await ScamDetector.analyzeMessage(message);
+      if (scamCheck && scamCheck.isScam) {
+        violation = 'Malicious Scam / Phishing';
+        violationDetail = scamCheck.reason || 'Malicious scam or phishing content detected.';
+        isScamViolation = true;
+        scamData = scamCheck;
+      }
+    }
 
-    // 1. Anti-Discord Invite
-    if (automod.antiInvite) {
+    // 2. Anti-Discord Invite
+    if (!violation && automod.antiInvite) {
       const inviteRegex = /(discord\.(gg|io|me|li)|discordapp\.com\/invite|discord\.com\/invite)\/[a-zA-Z0-9]+/i;
       if (inviteRegex.test(message.content)) {
         violation = 'Anti-Invite Violation';
@@ -394,7 +407,7 @@ module.exports = {
       }
     }
 
-    // 2. Anti-Link (General External Links)
+    // 3. Anti-Link (General External Links)
     if (!violation && automod.antiLink) {
       const linkRegex = /(https?:\/\/[^\s]+)/i;
       if (linkRegex.test(message.content)) {
@@ -403,8 +416,7 @@ module.exports = {
       }
     }
 
-    // 3. Anti-Mass-Mention
-    // Do NOT trigger on @everyone or @here alone; only trigger when a user mentions more than 5 users/roles
+    // 4. Anti-Mass-Mention
     if (!violation && automod.antiMassMention) {
       const maxAllowed = automod.maxMentions || 5;
       const userMentionCount = message.mentions.users.filter(u => u.id !== message.author.id && !u.bot).size;
@@ -417,7 +429,7 @@ module.exports = {
       }
     }
 
-    // 4. Anti-Profanity / Bad Words (Hindi, Hinglish & English)
+    // 5. Anti-Profanity / Bad Words
     if (!violation && automod.antiProfanity !== false) {
       const customList = Array.isArray(automod.customBadWords) && automod.customBadWords.length > 0
         ? automod.customBadWords
@@ -426,11 +438,11 @@ module.exports = {
       const check = BadWordsEngine.checkMessage(message.content, customList);
       if (check.isProfane) {
         violation = 'Profanity Filter Violation';
-        violationDetail = `Message contained prohibited abuse / bad word: \`${check.matchedWord}\``;
+        violationDetail = `Message contained prohibited abusive content: \`${check.matchedWord}\``;
       }
     }
 
-    // 5. Anti-Spam (Fast message flooding)
+    // 6. Anti-Spam (Fast message flooding)
     if (!violation && automod.antiSpam) {
       const now = Date.now();
       const userId = message.author.id;
@@ -438,7 +450,6 @@ module.exports = {
         spamTracker.set(userId, []);
       }
       const timestamps = spamTracker.get(userId);
-      // Keep timestamps within last 4 seconds
       const recent = timestamps.filter(t => now - t < 4000);
       recent.push(now);
       spamTracker.set(userId, recent);
@@ -451,32 +462,118 @@ module.exports = {
 
     // Process Violation Action
     if (violation) {
+      // Step 1: Delete offending message immediately
       try {
         await message.delete();
       } catch (err) {
         console.error('[AUTOMOD DELETE ERROR]', err);
       }
 
-      // Send auto-deleting warning notice in channel
-      const warnMsg = await message.channel.send({
-        content: `⚠️ ${message.author}, your message was deleted by **AutoMod**: *${violationDetail}*`
-      }).catch(() => null);
+      // Step 2: Real-Moderator Scam Handling vs Standard Violations
+      if (isScamViolation && scamData) {
+        const actionType = automod.scamAction || 'timeout';
+        const timeoutDurationStr = automod.scamTimeoutDuration || '1h';
+        const timeoutMs = TimeUtils.parseDuration(timeoutDurationStr) || (60 * 60 * 1000);
+        let actionSummary = 'Message Deleted';
 
-      if (warnMsg) {
-        setTimeout(() => warnMsg.delete().catch(() => null), 6000);
+        // 2a. Real-Moderator Enforcement: Timeout / Ban / Kick
+        const botMember = message.guild.members.me || await message.guild.members.fetchMe().catch(() => null);
+        const canModerate = botMember && member && member.moderatable && botMember.roles.highest.position > member.roles.highest.position;
+
+        if (canModerate) {
+          if (actionType === 'ban' && botMember.permissions.has(PermissionFlagsBits.BanMembers)) {
+            await member.ban({ reason: `AutoMod Security: ${scamData.reason}` }).catch(() => null);
+            actionSummary = 'Member Banned';
+          } else if (actionType === 'kick' && botMember.permissions.has(PermissionFlagsBits.KickMembers)) {
+            await member.kick(`AutoMod Security: ${scamData.reason}`).catch(() => null);
+            actionSummary = 'Member Kicked';
+          } else if (actionType !== 'delete_only' && botMember.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+            await member.timeout(timeoutMs, `AutoMod Security: ${scamData.reason}`).catch(() => null);
+            actionSummary = `Timed out for ${TimeUtils.formatDuration(timeoutMs)}`;
+          }
+        }
+
+        // 2b. Record Official Warning in Database
+        const botId = client?.user?.id || message.client.user.id;
+        const warnId = DatabaseManager.addWarn(message.guild.id, message.author.id, botId, `AutoMod Scam Interception: ${scamData.reason}`);
+
+        // 2c. Send Temporary Public Warning in Channel (Self-deletes in 8 seconds)
+        const publicNotice = new EmbedBuilder()
+          .setColor(config.embedColors.danger || '#ED4245')
+          .setTitle('🛡️ Security Shield: Scam Intercepted')
+          .setDescription(
+            `⚠️ A dangerous **phishing / scam image or link** from ${message.author} was intercepted and deleted.\n` +
+            `🛡️ **Moderator Action:** ${actionSummary} • Recorded Warning **#${warnId}**.`
+          )
+          .setFooter({ text: 'Hinata Security AutoMod • Notice self-deletes in 8s' });
+
+        const noticeMsg = await message.channel.send({ embeds: [publicNotice] }).catch(() => null);
+        if (noticeMsg) {
+          setTimeout(() => noticeMsg.delete().catch(() => null), 8000);
+        }
+
+        // 2d. Send Helpful Security DM to Compromised User in Clean English
+        try {
+          const userDmEmbed = new EmbedBuilder()
+            .setColor(config.embedColors.danger || '#ED4245')
+            .setTitle(`🚨 Security Notice: Incident in ${message.guild.name}`)
+            .setDescription(
+              `Hello **${message.author.username}**,\n\n` +
+              `Our automated security systems intercepted and deleted a **scam or phishing message** sent from your account in **${message.guild.name}**.\n\n` +
+              `**Threat Category:** ${scamData.reason}\n` +
+              `**Action Taken:** ${actionSummary}\n\n` +
+              `### 🔒 Urgent Security Advice:\n` +
+              `Your Discord account may be compromised or infected with a token grabber.\n` +
+              `1. **Change your Discord password immediately** (this revokes active attacker tokens).\n` +
+              `2. **Check Authorized Apps** in Discord User Settings and remove unfamiliar apps.\n` +
+              `3. **Enable Two-Factor Authentication (2FA)**.\n` +
+              `4. Run an antivirus scan on your device if you recently downloaded files or games.`
+            )
+            .setFooter({ text: 'Hinata Security Defense' })
+            .setTimestamp();
+
+          await message.author.send({ embeds: [userDmEmbed] }).catch(() => null);
+        } catch {}
+
+        // 2e. Detailed Staff Audit Log with OCR and QR Evidence
+        await ModLogger.log(message.guild, {
+          action: 'AutoMod: Scam / Phishing Intercepted',
+          target: message.author,
+          reason: scamData.reason,
+          color: config.embedColors.danger,
+          fields: [
+            { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
+            { name: '🛡️ Action Applied', value: `${actionSummary} (Warn #${warnId})`, inline: true },
+            { name: '🔍 Threat Type', value: `\`${scamData.scamType || 'SCAM_DETECTED'}\``, inline: true },
+            ...(scamData.details ? [{ name: '📋 Threat Detail', value: scamData.details.slice(0, 500), inline: false }] : []),
+            ...(scamData.ocrText ? [{ name: '📝 Extracted Image OCR Text', value: `\`\`\`${scamData.ocrText.slice(0, 900)}\`\`\``, inline: false }] : []),
+            ...(scamData.qrData ? [{ name: '📱 Decoded QR Data', value: `\`\`\`${scamData.qrData.slice(0, 500)}\`\`\``, inline: false }] : []),
+            ...(scamData.evidenceUrl ? [{ name: '🔗 Evidence Media URL', value: `[View Uploaded File](${scamData.evidenceUrl})`, inline: false }] : [])
+          ]
+        });
+
+      } else {
+        // Standard AutoMod Action (Invites, Links, Mass Mentions, Profanity, Spam)
+        const warnMsg = await message.channel.send({
+          content: `⚠️ ${message.author}, your message was deleted by **AutoMod**: *${violationDetail}*`
+        }).catch(() => null);
+
+        if (warnMsg) {
+          setTimeout(() => warnMsg.delete().catch(() => null), 6000);
+        }
+
+        // Log to ModLogs
+        await ModLogger.log(message.guild, {
+          action: `AutoMod: ${violation}`,
+          target: message.author,
+          reason: violationDetail,
+          color: config.embedColors.danger,
+          fields: [
+            { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
+            { name: '📝 Message Content', value: `\`\`\`${(message.content || '[No Text]').slice(0, 1000)}\`\`\``, inline: false }
+          ]
+        });
       }
-
-      // Log to ModLogs
-      await ModLogger.log(message.guild, {
-        action: `AutoMod: ${violation}`,
-        target: message.author,
-        reason: violationDetail,
-        color: config.embedColors.danger,
-        fields: [
-          { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
-          { name: '📝 Message Content', value: `\`\`\`${(message.content || '[No Text]').slice(0, 1000)}\`\`\``, inline: false }
-        ]
-      });
     }
   }
 };

@@ -25,7 +25,8 @@ let store = {
   playlists: {},
   counting: {},
   afk: {},
-  levels: {}
+  levels: {},
+  honor: {}
 };
 
 function applyParsedStore(parsed) {
@@ -40,13 +41,14 @@ function applyParsedStore(parsed) {
     playlists: parsed.playlists || {},
     counting: parsed.counting || {},
     afk: parsed.afk || {},
-    levels: parsed.levels || {}
+    levels: parsed.levels || {},
+    honor: parsed.honor || store.honor || {}
   };
 }
 
 function isValidDatabaseObject(obj) {
   return obj && typeof obj === 'object' && !Array.isArray(obj) &&
-    (obj.guild_settings || obj.levels || obj.warnings || obj.invites || obj.playlists || obj.tickets);
+    (obj.guild_settings || obj.levels || obj.warnings || obj.invites || obj.playlists || obj.tickets || obj.honor);
 }
 
 // Multi-Stage Resilient Load Database with Zero Data Wipe Safeguards
@@ -1502,6 +1504,201 @@ class DatabaseManager {
       .sort((a, b) => b.weeklyXp - a.weeklyXp);
     const index = sorted.findIndex(item => item.id === userId);
     return index !== -1 ? index + 1 : sorted.length + 1;
+  }
+
+  // ==========================================
+  // HONOR & REPUTATION SYSTEM
+  // ==========================================
+  static calculateHonorLevel(points) {
+    if (points >= 100) return 5;
+    if (points >= 50) return 4;
+    if (points >= 25) return 3;
+    if (points >= 10) return 2;
+    return 1;
+  }
+
+  static getHonorPointsForNextLevel(level) {
+    switch (level) {
+      case 1: return { currentTierBase: 0, nextTierReq: 10, nextLevel: 2, title: 'Respected' };
+      case 2: return { currentTierBase: 10, nextTierReq: 25, nextLevel: 3, title: 'Honorable' };
+      case 3: return { currentTierBase: 25, nextTierReq: 50, nextLevel: 4, title: 'Distinguished' };
+      case 4: return { currentTierBase: 50, nextTierReq: 100, nextLevel: 5, title: 'Radiant Paragon' };
+      case 5: return { currentTierBase: 100, nextTierReq: 100, nextLevel: 5, title: 'Radiant Paragon (Max Tier)' };
+      default: return { currentTierBase: 0, nextTierReq: 10, nextLevel: 2, title: 'Respected' };
+    }
+  }
+
+  static getHonorConfig(guildId) {
+    const guild = this.getGuild(guildId);
+    if (!guild.honor_config) {
+      guild.honor_config = {
+        enabled: true,
+        channelId: null,
+        roles: {
+          '2': null,
+          '3': null,
+          '4': null,
+          '5': null
+        },
+        stackRoles: true,
+        dailyTokens: 3
+      };
+    }
+    return guild.honor_config;
+  }
+
+  static setHonorConfig(guildId, config) {
+    const guild = this.getGuild(guildId);
+    guild.honor_config = { ...(guild.honor_config || this.getHonorConfig(guildId)), ...config };
+    saveDatabase();
+    return guild.honor_config;
+  }
+
+  static getHonorUser(guildId, userId) {
+    if (!store.honor) store.honor = {};
+    if (!store.honor[guildId]) store.honor[guildId] = {};
+
+    const now = Date.now();
+    const defaultData = {
+      points: 0,
+      level: 1,
+      categories: {
+        friendly: 0,
+        shotcaller: 0,
+        helpful: 0,
+        mvp: 0
+      },
+      tokensRemaining: 3,
+      tokenResetAt: now + (24 * 60 * 60 * 1000),
+      lastGivenTo: {},
+      history: []
+    };
+
+    if (!store.honor[guildId][userId]) {
+      store.honor[guildId][userId] = defaultData;
+      saveDatabase();
+      return store.honor[guildId][userId];
+    }
+
+    const userData = store.honor[guildId][userId];
+    // Reset daily tokens if 24 hours have elapsed
+    if (now > (userData.tokenResetAt || 0)) {
+      userData.tokensRemaining = 3;
+      userData.tokenResetAt = now + (24 * 60 * 60 * 1000);
+      saveDatabase();
+    }
+
+    if (!userData.categories) {
+      userData.categories = { friendly: 0, shotcaller: 0, helpful: 0, mvp: 0 };
+    }
+    if (typeof userData.tokensRemaining !== 'number') {
+      userData.tokensRemaining = 3;
+    }
+
+    return userData;
+  }
+
+  static addHonor(guildId, targetUserId, senderUserId, category = 'friendly', reason = '') {
+    if (!store.honor) store.honor = {};
+    if (!store.honor[guildId]) store.honor[guildId] = {};
+
+    const sender = this.getHonorUser(guildId, senderUserId);
+    const target = this.getHonorUser(guildId, targetUserId);
+
+    // 1. Check daily tokens
+    if (sender.tokensRemaining <= 0) {
+      const remainingMs = Math.max(0, (sender.tokenResetAt || Date.now()) - Date.now());
+      return {
+        success: false,
+        error: 'NO_TOKENS',
+        resetInMs: remainingMs
+      };
+    }
+
+    // 2. Check 24-hour friend cooldown
+    const lastGivenTime = sender.lastGivenTo?.[targetUserId] || 0;
+    const cooldownMs = 24 * 60 * 60 * 1000;
+    if (Date.now() - lastGivenTime < cooldownMs) {
+      const remainingMs = cooldownMs - (Date.now() - lastGivenTime);
+      return {
+        success: false,
+        error: 'USER_COOLDOWN',
+        resetInMs: remainingMs
+      };
+    }
+
+    // Deduct token from sender and record timestamp
+    sender.tokensRemaining = Math.max(0, sender.tokensRemaining - 1);
+    if (!sender.lastGivenTo) sender.lastGivenTo = {};
+    sender.lastGivenTo[targetUserId] = Date.now();
+
+    // Update target points and category
+    const validCat = ['friendly', 'shotcaller', 'helpful', 'mvp'].includes(category.toLowerCase())
+      ? category.toLowerCase()
+      : 'friendly';
+
+    target.points = (target.points || 0) + 1;
+    target.categories[validCat] = (target.categories[validCat] || 0) + 1;
+
+    // Record history
+    if (!target.history) target.history = [];
+    target.history.unshift({
+      fromUserId: senderUserId,
+      category: validCat,
+      reason: reason ? reason.slice(0, 150) : null,
+      timestamp: Date.now()
+    });
+    if (target.history.length > 10) target.history = target.history.slice(0, 10);
+
+    const oldLevel = target.level || 1;
+    const newLevel = this.calculateHonorLevel(target.points);
+    const leveledUp = newLevel > oldLevel;
+    target.level = newLevel;
+
+    saveDatabase();
+
+    return {
+      success: true,
+      targetUserId,
+      senderUserId,
+      category: validCat,
+      points: target.points,
+      level: target.level,
+      oldLevel,
+      leveledUp,
+      tokensLeft: sender.tokensRemaining
+    };
+  }
+
+  static getHonorLeaderboard(guildId, limit = 10) {
+    if (!store.honor || !store.honor[guildId]) return [];
+    const entries = Object.entries(store.honor[guildId]);
+
+    return entries
+      .map(([userId, data]) => ({
+        userId,
+        points: data.points || 0,
+        level: data.level || 1,
+        categories: data.categories || { friendly: 0, shotcaller: 0, helpful: 0, mvp: 0 }
+      }))
+      .filter(u => u.points > 0)
+      .sort((a, b) => b.points - a.points)
+      .slice(0, limit);
+  }
+
+  static getUserHonorRank(guildId, userId) {
+    const leaderboard = this.getHonorLeaderboard(guildId, 1000);
+    const index = leaderboard.findIndex(u => u.userId === userId);
+    return index !== -1 ? index + 1 : null;
+  }
+
+  static resetHonorUser(guildId, userId) {
+    if (store.honor && store.honor[guildId] && store.honor[guildId][userId]) {
+      delete store.honor[guildId][userId];
+      saveDatabase();
+      return true;
+    }
+    return false;
   }
 
   // Cloud & Backup Helpers

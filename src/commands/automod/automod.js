@@ -2,17 +2,46 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('disc
 const { DatabaseManager } = require('../../../database/db');
 const BadWordsEngine = require('../../utils/badWords');
 const EmbedUtils = require('../../utils/embeds');
+const ScamDetector = require('../../utils/scamDetector');
 const config = require('../../../config.json');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('automod')
-    .setDescription('🛡️ Automated server protection & Hindi/Hinglish profanity defense')
+    .setDescription('🛡️ Automated server protection, anti-scam image defense & profanity filter')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand(sub =>
       sub
         .setName('status')
         .setDescription('📊 View current AutoMod configuration and active filters')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('anti-scam')
+        .setDescription('🛡️ Protect server from scam images, fake Nitro, Steam gifts, and QR code grabbers')
+        .addBooleanOption(opt => opt.setName('enabled').setDescription('Enable or disable anti-scam defense').setRequired(true))
+        .addStringOption(opt =>
+          opt.setName('action')
+            .setDescription('Action to take against offenders (default: Timeout)')
+            .setRequired(false)
+            .addChoices(
+              { name: '⏳ Timeout Member (Recommended)', value: 'timeout' },
+              { name: '🗑️ Delete Message Only', value: 'delete_only' },
+              { name: '👢 Kick Member', value: 'kick' },
+              { name: '🔨 Ban Member', value: 'ban' }
+            )
+        )
+        .addStringOption(opt =>
+          opt.setName('duration')
+            .setDescription('Timeout duration if action is Timeout (e.g. 10m, 1h, 1d - default: 1h)')
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('test-image')
+        .setDescription('🔍 Live test an image URL using OCR text recognition and QR code scanner')
+        .addStringOption(opt => opt.setName('url').setDescription('Direct URL to the image (png, jpg, webp)').setRequired(true))
     )
     .addSubcommand(sub =>
       sub
@@ -86,14 +115,15 @@ module.exports = {
     if (subcommand === 'status') {
       const customCount = (automod.customBadWords || []).length;
       const totalWords = customCount > 0 ? customCount : BadWordsEngine.getTotalCount();
-      const wordSource = customCount > 0 ? `Custom List (${customCount} words)` : `Master Preset (${totalWords} Hindi/Hinglish/English words)`;
+      const wordSource = customCount > 0 ? `Custom List (${customCount} words)` : `Master Preset (${totalWords} words)`;
 
       const embed = new EmbedBuilder()
         .setColor(config.embedColors.primary || '#5865F2')
         .setTitle('🛡️ AutoMod Protection Status')
         .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
-        .setDescription('Real-time automated defense & profanity filter settings:')
+        .setDescription('Real-time automated defense & server protection settings:')
         .addFields(
+          { name: '🛡️ Anti-Scam & Image OCR Shield', value: automod.antiScam !== false ? `✅ Enabled (Action: \`${(automod.scamAction || 'timeout').toUpperCase()}\` • \`${automod.scamTimeoutDuration || '1h'}\`)` : '❌ Disabled', inline: false },
           { name: '🤬 Anti-Profanity / Bad Words', value: automod.antiProfanity !== false ? `✅ Enabled (${wordSource})` : '❌ Disabled', inline: false },
           { name: '🚫 Anti-Discord-Invite', value: automod.antiInvite ? '✅ Enabled' : '❌ Disabled', inline: true },
           { name: '🔗 Anti-Link', value: automod.antiLink ? '✅ Enabled' : '❌ Disabled', inline: true },
@@ -102,9 +132,82 @@ module.exports = {
           { name: '🧪 Filter Admins (Testing)', value: automod.filterAdmins ? '⚠️ Active (Admins Filtered)' : '✅ Bypassed (Normal)', inline: true },
           { name: '📜 ModLog Channel', value: guildSettings.modlog_channel ? `<#${guildSettings.modlog_channel}>` : '❌ Not Set (\`/automod modlog\`)', inline: true }
         )
-        .setFooter({ text: 'Use /automod test <text> to simulate filter checks anytime.' });
+        .setFooter({ text: 'Use /automod test <text> or /automod test-image <url> to simulate checks.' });
 
       return interaction.reply({ embeds: [embed] });
+    }
+
+    // 2. ANTI-SCAM
+    if (subcommand === 'anti-scam') {
+      const enabled = interaction.options.getBoolean('enabled');
+      const action = interaction.options.getString('action') || automod.scamAction || 'timeout';
+      const duration = interaction.options.getString('duration') || automod.scamTimeoutDuration || '1h';
+
+      automod.antiScam = enabled;
+      automod.scamAction = action;
+      automod.scamTimeoutDuration = duration;
+      DatabaseManager.setAutomodConfig(interaction.guild.id, automod);
+
+      return interaction.reply({
+        embeds: [
+          EmbedUtils.success(
+            'Anti-Scam Shield Updated',
+            `Anti-Scam & Malicious Image filter is now **${enabled ? 'ENABLED' : 'DISABLED'}**.\n\n` +
+            `• **Enforcement Action:** \`${action.toUpperCase()}\`\n` +
+            `• **Timeout Duration:** \`${duration}\`\n` +
+            `• **Detection Engines:** OCR Text Analysis (\`tesseract.js\`) + QR Hijack Scanner (\`jsqr\`)\n\n` +
+            `*Offenders sending fake Steam gifts, Nitro phishing, or QR grabbers will be automatically intercepted like a human moderator.*`
+          )
+        ]
+      });
+    }
+
+    // 3. TEST-IMAGE
+    if (subcommand === 'test-image') {
+      await interaction.deferReply({ ephemeral: true });
+      const imageUrl = interaction.options.getString('url');
+
+      try {
+        const qrResult = await ScamDetector.scanQrCode(imageUrl);
+        const ocrResult = await ScamDetector.scanImageOcr(imageUrl);
+
+        const isThreat = (qrResult.found && qrResult.isHijack) || ocrResult.hasScamText;
+        const color = isThreat ? config.embedColors.danger : config.embedColors.success;
+        const statusEmoji = isThreat ? '🚨' : '✅';
+
+        const embed = new EmbedBuilder()
+          .setColor(color)
+          .setTitle(`${statusEmoji} Image OCR & QR Security Diagnostic`)
+          .setThumbnail(imageUrl)
+          .setDescription(
+            `**Target Image:** [Direct URL](${imageUrl})\n` +
+            `**Verdict:** ${isThreat ? '🚨 **THREAT DETECTED (Would be deleted & timed out)**' : '✅ **CLEAN (Passed all scam & phishing checks)**'}`
+          )
+          .addFields(
+            {
+              name: '📱 QR Code Analysis',
+              value: qrResult.found
+                ? `${qrResult.isHijack ? '🚨 **Malicious QR Detected:** ' + qrResult.reason : '✅ Safe QR Code: `' + (qrResult.data || '').slice(0, 100) + '`'}`
+                : 'ℹ️ No QR Code detected in image.',
+              inline: false
+            },
+            {
+              name: '📝 OCR Text Extraction (Tesseract.js)',
+              value: ocrResult.text
+                ? `\`\`\`${ocrResult.text.slice(0, 500)}\`\`\`\n${ocrResult.hasScamText ? '🚨 **Flagged Pattern:** `' + ocrResult.scamType + '` (' + ocrResult.reason + ')' : '✅ No prohibited scam phrases found.'}`
+                : 'ℹ️ No readable text detected in image.',
+              inline: false
+            }
+          )
+          .setFooter({ text: 'Hinata Computer Vision & OCR Security Engine' })
+          .setTimestamp();
+
+        return interaction.editReply({ embeds: [embed] });
+      } catch (err) {
+        return interaction.editReply({
+          embeds: [EmbedUtils.error('Scan Failed', `Could not download or analyze image: \`${err.message}\``)]
+        });
+      }
     }
 
     // 2. MODLOG

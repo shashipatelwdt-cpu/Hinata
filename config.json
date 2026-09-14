@@ -31,6 +31,9 @@
       "antiMassMention": true,
       "maxMentions": 5,
       "antiProfanity": true,
+      "antiScam": true,
+      "scamAction": "timeout",
+      "scamTimeoutDuration": "1h",
       "whitelistedRoles": [],
       "whitelistedChannels": [],
       "customBadWords": []

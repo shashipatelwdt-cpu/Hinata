@@ -1,11 +1,39 @@
 const ModLogger = require('../utils/logger');
 const SnipeManager = require('../utils/snipeManager');
+const ScamDetector = require('../utils/scamDetector');
+const { DatabaseManager } = require('../../database/db');
 const config = require('../../config.json');
 
 module.exports = {
   name: 'messageUpdate',
   async execute(oldMessage, newMessage) {
     if (!oldMessage?.guild || !oldMessage?.author || oldMessage.author.bot) return;
+    if (!newMessage) return;
+
+    // Check edited message for scam/phishing links
+    const guildSettings = DatabaseManager.getGuild(oldMessage.guild.id);
+    const automod = { ...config.defaultSettings.automod, ...(guildSettings.automod || {}) };
+
+    if (automod.antiScam !== false) {
+      const scamCheck = await ScamDetector.analyzeMessage(newMessage);
+      if (scamCheck && scamCheck.isScam) {
+        try {
+          await newMessage.delete();
+          await ModLogger.log(oldMessage.guild, {
+            action: 'AutoMod: Scam Detected in Edited Message',
+            target: oldMessage.author,
+            reason: `Edited message contained scam content: ${scamCheck.reason}`,
+            color: config.embedColors.danger,
+            fields: [
+              { name: '💬 Channel', value: `<#${oldMessage.channel.id}>`, inline: true },
+              { name: '🔍 Scam Type', value: `\`${scamCheck.scamType}\``, inline: true }
+            ]
+          });
+        } catch {}
+        return;
+      }
+    }
+
     if (!oldMessage.content || oldMessage.content === newMessage?.content) return;
 
     // 1. Record in SnipeManager for /editsnipe and /ghostping
