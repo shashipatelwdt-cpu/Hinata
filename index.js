@@ -319,6 +319,32 @@ function scheduleReconnect(delayMs = 15000) {
   }, delayMs);
 }
 
+// 3. Register Slash Commands automatically when bot logs in
+async function registerCommands(token, clientId, guildId) {
+  try {
+    const rest = new REST({ version: '10' }).setToken(token);
+    console.log(`🔄 Auto-syncing ${slashCommandsData.length} application (/) commands...`);
+
+    // Global deployment
+    await rest.put(
+      Routes.applicationCommands(clientId),
+      { body: slashCommandsData }
+    );
+    console.log(`✅ Deployed ${slashCommandsData.length} global commands.`);
+
+    // Also sync directly to all connected guilds for 0-delay instant updates on client
+    for (const g of client.guilds.cache.values()) {
+      await rest.put(
+        Routes.applicationGuildCommands(clientId, g.id),
+        { body: slashCommandsData }
+      ).catch(() => null);
+    }
+    console.log(`⚡ Instant-synced slash commands to ${client.guilds.cache.size} guilds.`);
+  } catch (error) {
+    console.error('[COMMAND SYNC ERROR]', error.message || error);
+  }
+}
+
 async function connectBot(force = false) {
   if (isConnecting) return;
   if (!force && client.isReady()) {
@@ -362,7 +388,9 @@ async function connectBot(force = false) {
     isConnecting = false;
 
     if (clientId && clientId !== 'your_client_id_here') {
-      await registerCommands(token, clientId, guildId);
+      registerCommands(token, clientId, guildId).catch(err => {
+        console.error('[COMMAND SYNC ERROR]:', err.message);
+      });
     }
   } catch (err) {
     isConnecting = false;

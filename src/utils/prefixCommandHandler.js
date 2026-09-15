@@ -1354,7 +1354,7 @@ class PrefixCommandHandler {
       case 'rank':
       case 'level':
       case 'lvl': {
-        const targetUser = message.mentions.users.first() || message.author;
+        const targetUser = (message.mentions?.users?.first && message.mentions.users.first()) || message.author;
         if (targetUser.bot) {
           await message.reply({ content: '🤖 Bots do not earn XP or levels!' }).catch(() => null);
           return true;
@@ -1368,25 +1368,51 @@ class PrefixCommandHandler {
           const userTheme = DatabaseManager.getUserRankTheme(guildId, targetUser.id);
           const cardColor = userTheme.color || '#f4c444';
 
-          const avatarUrl = targetUser.displayAvatarURL({ extension: 'png', size: 256, forceStatic: true });
-          const cardBuffer = await generateRankCard({
-            username: targetUser.username,
-            avatarUrl,
-            serverRank: userRank,
-            weeklyRank: weeklyRank,
-            weeklyXp: userData.weeklyXp || 0,
-            level: userData.level || 0,
-            currentXp: userData.xp || 0,
-            neededXp: userData.neededXp || 100,
-            accentColor: cardColor
-          });
+          let cardBuffer = null;
+          try {
+            const avatarUrl = typeof targetUser.displayAvatarURL === 'function'
+              ? targetUser.displayAvatarURL({ extension: 'png', size: 256, forceStatic: true })
+              : null;
+            cardBuffer = await generateRankCard({
+              username: targetUser.username || 'Member',
+              avatarUrl,
+              serverRank: userRank,
+              weeklyRank: weeklyRank,
+              weeklyXp: userData.weeklyXp || 0,
+              level: userData.level || 0,
+              currentXp: userData.xp || 0,
+              neededXp: userData.neededXp || 100,
+              accentColor: cardColor
+            });
+          } catch (canvasErr) {
+            console.warn('[RANK CANVAS FALLBACK]:', canvasErr.message);
+          }
 
-          const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
-          await message.reply({ files: [attachment] }).catch(() => null);
+          if (cardBuffer) {
+            const attachment = new AttachmentBuilder(cardBuffer, { name: 'rank.png' });
+            const sent = await message.reply({ files: [attachment] }).catch(() => null);
+            if (sent) return true;
+          }
+
+          // Text / Embed Fallback (guaranteed delivery even if Attach Files permission is off)
+          const rankEmbed = new EmbedBuilder()
+            .setColor(cardColor)
+            .setTitle(`🎖️ Level & XP Rank • ${targetUser.username}`)
+            .setThumbnail(typeof targetUser.displayAvatarURL === 'function' ? targetUser.displayAvatarURL({ dynamic: true }) : null)
+            .setDescription(
+              `**Server Rank:** \`#${userRank}\`\n` +
+              `**Level:** \`${userData.level || 0}\`\n` +
+              `**Exp:** \`${userData.xp || 0}\` / \`${userData.neededXp || 100}\`\n` +
+              `**Weekly Rank:** \`#${weeklyRank}\` (\`${userData.weeklyXp || 0}\` Weekly XP)`
+            )
+            .setFooter({ text: `${config.botName || 'RAW'} Leveling Engine` })
+            .setTimestamp();
+
+          await message.reply({ embeds: [rankEmbed] }).catch(() => null);
           return true;
         } catch (err) {
           console.error('[PREFIX RANK ERROR]:', err);
-          await message.reply({ content: `❌ Error generating rank card: ${err.message}` }).catch(() => null);
+          await message.reply({ content: `❌ Error: ${err.message}` }).catch(() => null);
           return true;
         }
       }
@@ -1555,6 +1581,19 @@ class PrefixCommandHandler {
           .setTimestamp();
 
         await message.reply({ embeds: [lbEmbed] });
+        return true;
+      }
+
+      // ==========================================
+      // LEVELING & RANK COMMANDS
+      // ==========================================
+      case 'leaderboard':
+      case 'top':
+      case 'levels':
+      case 'lb': {
+        const lbData = DatabaseManager.getLeaderboard(message.guild.id, 1, 10);
+        const embed = formatLevelLeaderboard(message.guild, lbData.users, 1, lbData.totalPages);
+        await message.reply({ embeds: [embed] });
         return true;
       }
 
