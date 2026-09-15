@@ -145,7 +145,7 @@ module.exports = {
                 `**Your Statement:**\n> "${appealReason.replace(/\n/g, '\n> ')}"\n\n` +
                 `Staff will review your case fairly. You will receive an automated direct message update when a decision is made.`
               )
-              .setFooter({ text: 'Hinata Disciplinary Appeal System' })
+              .setFooter({ text: 'RAW Disciplinary Appeal System' })
               .setTimestamp()
           ],
           ephemeral: true
@@ -475,7 +475,7 @@ module.exports = {
                   color: rDef.color,
                   hoist: rDef.hoist,
                   mentionable: rDef.mentionable,
-                  reason: `Hinata Bulk Role Builder by ${interaction.user.tag}`
+                  reason: `RAW Bulk Role Builder by ${interaction.user.tag}`
                 });
                 createdRoles.push(newRole);
               } catch (e) {
@@ -506,7 +506,7 @@ module.exports = {
               (failedRoles.length > 0 ? `• ⚠️ **Failed:** \`${failedRoles.length}\`\n` : '') +
               `\n*All roles are now ready in your server settings!*`
             )
-            .setFooter({ text: 'Hinata Role Builder • Server Ready' })
+            .setFooter({ text: 'RAW Role Builder • Server Ready' })
             .setTimestamp();
 
           return i.editReply({ embeds: [successEmbed], components: [] });
@@ -767,7 +767,7 @@ module.exports = {
 
           if (isSelected && !hasRole) {
             try {
-              await member.roles.add(role, 'Hinata Self-Role Select Menu');
+              await member.roles.add(role, 'RAW Self-Role Select Menu');
               addedRoles.push(`<@&${role.id}>`);
             } catch (e) {
               console.error(`Failed to add role ${role.name} (${role.id}):`, e);
@@ -775,7 +775,7 @@ module.exports = {
             }
           } else if (!isSelected && hasRole) {
             try {
-              await member.roles.remove(role, 'Hinata Self-Role Deselected');
+              await member.roles.remove(role, 'RAW Self-Role Deselected');
               removedRoles.push(`<@&${role.id}>`);
             } catch (e) {
               console.error(`Failed to remove role ${role.name} (${role.id}):`, e);
@@ -832,7 +832,7 @@ module.exports = {
             `• 🛡️ **AutoMod & ModLogs:** Armed with Anti-Spam & Anti-Invite\n\n` +
             `Click **🚀 Launch 1-Click Server Setup** below to begin!`
           )
-          .setFooter({ text: `${config.botName || 'Hinata'} • 1-Click Server Builder` })
+          .setFooter({ text: `${config.botName || 'RAW'} • 1-Click Server Builder` })
           .setTimestamp();
 
         const btnRow = new ActionRowBuilder().addComponents(
@@ -1031,7 +1031,7 @@ module.exports = {
             { name: '📊 Member Position', value: `**#${interaction.guild.memberCount}**`, inline: true },
             { name: '🎨 Selected Theme', value: `\`${template.name}\``, inline: true }
           )
-          .setFooter({ text: `Hinata Welcome Catalog • Theme: ${template.name}` })
+          .setFooter({ text: `RAW Welcome Catalog • Theme: ${template.name}` })
           .setTimestamp();
 
         if (template.banner) {
@@ -1244,7 +1244,7 @@ module.exports = {
                 `• **Penalties:** All active timeouts lifted & strikes cleared.\n\n` +
                 `Thank you for your patience and for cooperating with server guidelines!`
               )
-              .setFooter({ text: 'Hinata Disciplinary Appeals' })
+              .setFooter({ text: 'RAW Disciplinary Appeals' })
               .setTimestamp();
 
             await appellant.send({ embeds: [approvalDM] }).catch(() => null);
@@ -1320,7 +1320,7 @@ module.exports = {
                 `Your appeal for **${modCase.caseId}** was reviewed by server staff and **denied**.\n\n` +
                 `The applied disciplinary action and strikes remain in effect. Please review our server rules to avoid future incidents.`
               )
-              .setFooter({ text: 'Hinata Disciplinary Appeals' })
+              .setFooter({ text: 'RAW Disciplinary Appeals' })
               .setTimestamp();
 
             await appellant.send({ embeds: [denialDM] }).catch(() => null);
@@ -1374,7 +1374,7 @@ module.exports = {
             .setTitle(`▶️ Playing Playlist • ${pl.name}`)
             .setDescription(`Enqueued **${pl.tracks.length} songs** into the music queue!`)
             .setColor(config.embedColors?.primary || '#5865F2')
-            .setFooter({ text: `${pl.name} • Hinata Playlists` });
+            .setFooter({ text: `${pl.name} • RAW Playlists` });
 
           await interaction.editReply({ embeds: [embed] });
 
@@ -1430,7 +1430,7 @@ module.exports = {
             .setTitle(`🔀 Shuffled Playlist • ${pl.name}`)
             .setDescription(`Shuffled and enqueued **${shuffled.length} songs** into the music queue!`)
             .setColor(config.embedColors?.primary || '#5865F2')
-            .setFooter({ text: `${pl.name} • Hinata Playlists` });
+            .setFooter({ text: `${pl.name} • RAW Playlists` });
 
           await interaction.editReply({ embeds: [embed] });
 
@@ -1985,7 +1985,7 @@ module.exports = {
             { name: '👤 Account Age', value: `<t:${Math.floor(interaction.user.createdTimestamp / 1000)}:R>`, inline: true },
             { name: '📊 Member Position', value: `**#${interaction.guild.memberCount}**`, inline: true }
           )
-          .setFooter({ text: `Hinata Test Welcome • User ID: ${interaction.user.id}` })
+          .setFooter({ text: `RAW Test Welcome • User ID: ${interaction.user.id}` })
           .setTimestamp();
 
         if (template.banner) {
@@ -2200,7 +2200,7 @@ module.exports = {
               '• `/autorole toggle` - Enable or disable auto-role\n' +
               '• `/autorole test` - Test role assignment and permissions\n' +
               '• `/autorole remove <target>` - Clear configured roles\n\n' +
-              '💡 *Make sure Hinata\'s bot role is placed **above** the auto-role in Server Settings > Roles!*'
+              '💡 *Make sure RAW\'s bot role is placed **above** the auto-role in Server Settings > Roles!*'
             )
           ],
           ephemeral: true
@@ -2212,7 +2212,7 @@ module.exports = {
           embeds: [
             EmbedUtils.info(
               '🏗️ Server Templates & AI Custom Builder Guide',
-              'Hinata Bot comes with **27+ built-in presets** & **Interactive Slider Carousel**:\n\n' +
+              'RAW Bot comes with **27+ built-in presets** & **Interactive Slider Carousel**:\n\n' +
               '• `/template list [category]` - Interactive visual Slider Carousel to slide through presets\n' +
               '• `/template preview <preset>` - Live preview with Autocomplete search\n' +
               '• `/template apply <preset>` - 1-Click install any preset\n' +
@@ -2231,7 +2231,7 @@ module.exports = {
           embeds: [
             EmbedUtils.info(
               '🛡️ AutoMod Guide',
-              'Hinata features real-time automated server defense:\n\n' +
+              'RAW features real-time automated server defense:\n\n' +
               '• `/automod anti-link` - Block all external links\n' +
               '• `/automod anti-invite` - Block Discord invite links\n' +
               '• `/automod anti-spam` - Stop fast message flooding\n' +
@@ -2352,7 +2352,7 @@ module.exports = {
         }
 
         try {
-          await member.roles.add(role, 'Hinata Verification: Accepted server rules');
+          await member.roles.add(role, 'RAW Verification: Accepted server rules');
           return interaction.reply({
             embeds: [
               EmbedUtils.success(
@@ -2659,7 +2659,7 @@ module.exports = {
           .setColor(config.embedColors.primary || '#5865F2')
           .setTitle('⚡ 1-Click Automatic Server Setup')
           .setDescription(
-            `Welcome to **${config.botName || 'Hinata'} 1-Click Server Automation**!\n\n` +
+            `Welcome to **${config.botName || 'RAW'} 1-Click Server Automation**!\n\n` +
             `With **1-Click**, the bot will automatically:\n` +
             `• 🏗️ Build complete Categories, Voice rooms & Channels\n` +
             `• 🎭 Create & assign all Server Roles with permissions\n` +

@@ -110,7 +110,7 @@ module.exports = {
               `👑 **Server Record:** **${failResult.previousHighScore}**`
             )
             .setColor(config.embedColors?.danger || '#ED4245')
-            .setFooter({ text: 'Hinata Counting Engine' });
+            .setFooter({ text: 'RAW Counting Engine' });
 
           await message.channel.send({ embeds: [failEmbed] }).catch(() => null);
           return;
@@ -130,7 +130,7 @@ module.exports = {
               `👑 **Server Record:** **${failResult.previousHighScore}**`
             )
             .setColor(config.embedColors?.danger || '#ED4245')
-            .setFooter({ text: 'Hinata Counting Engine' });
+            .setFooter({ text: 'RAW Counting Engine' });
 
           await message.channel.send({ embeds: [failEmbed] }).catch(() => null);
           return;
@@ -534,7 +534,7 @@ module.exports = {
             `⚠️ A dangerous **phishing / scam image or link** from ${message.author} was intercepted and deleted.\n` +
             `🛡️ **Moderator Action:** ${actionSummary} • Recorded Warning **#${warnId}**.`
           )
-          .setFooter({ text: 'Hinata Security AutoMod • Notice self-deletes in 8s' });
+          .setFooter({ text: 'RAW Security AutoMod • Notice self-deletes in 8s' });
 
         const noticeMsg = await message.channel.send({ embeds: [publicNotice] }).catch(() => null);
         if (noticeMsg) {
@@ -558,7 +558,7 @@ module.exports = {
               `3. **Enable Two-Factor Authentication (2FA)**.\n` +
               `4. Run an antivirus scan on your device if you recently downloaded files or games.`
             )
-            .setFooter({ text: 'Hinata Security Defense' })
+            .setFooter({ text: 'RAW Security Defense' })
             .setTimestamp();
 
           await message.author.send({ embeds: [userDmEmbed] }).catch(() => null);

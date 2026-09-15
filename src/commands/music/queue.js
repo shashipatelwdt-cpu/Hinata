@@ -66,7 +66,7 @@ module.exports = {
       )
       .setColor(config.embedColors?.primary || '#5865F2')
       .setFooter({
-        text: `Hinata Music System • ${queue.songs.length} song(s) in queue`,
+        text: `RAW Music System • ${queue.songs.length} song(s) in queue`,
         iconURL: interaction.guild.iconURL()
       })
       .setTimestamp();

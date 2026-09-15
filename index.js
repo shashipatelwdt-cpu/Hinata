@@ -357,7 +357,7 @@ async function connectBot(force = false) {
 
   try {
     await Promise.race([client.login(token), timeoutPromise]);
-    console.log(`✅ Successfully logged in as ${client.user?.tag || 'Hinata'}!`);
+    console.log(`✅ Successfully logged in as ${client.user?.tag || 'RAW'}!`);
     lastBotError = null;
     isConnecting = false;
 
@@ -422,7 +422,7 @@ http.createServer(async (req, res) => {
   if (pathname === '/status' || pathname === '/json' || pathname === '/health' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     return res.end(JSON.stringify({
-      bot: client.user?.tag || 'Hinata',
+      bot: client.user?.tag || 'RAW',
       online: isOnline,
       wsStatus: currentWsState,
       guildsCount: client.guilds?.cache?.size || 0,
@@ -445,7 +445,7 @@ http.createServer(async (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hinata Bot Status</title>
+  <title>RAW Bot Status</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px 20px; margin: 0; }
     .card { max-width: 650px; margin: 0 auto; background: #1e293b; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
@@ -466,9 +466,9 @@ http.createServer(async (req, res) => {
 <body>
   <div class="card">
     <span class="badge ${isOnline ? 'online' : 'offline'}">${isOnline ? 'ONLINE 24/7' : currentWsState}</span>
-    <h1>Hinata Discord Bot</h1>
+    <h1>RAW Discord Bot</h1>
     <div class="row"><span class="label">Gateway Status</span><span class="value">${isOnline ? '🟢 Connected' : '🟡 ' + currentWsState}</span></div>
-    <div class="row"><span class="label">Bot Identity</span><span class="value">${client.user?.tag || 'Hinata#1530'}</span></div>
+    <div class="row"><span class="label">Bot Identity</span><span class="value">${client.user?.tag || 'RAW#1530'}</span></div>
     <div class="row"><span class="label">Connected Servers</span><span class="value">${client.guilds?.cache?.size || 0}</span></div>
     <div class="row"><span class="label">Process Uptime</span><span class="value">${Math.floor(process.uptime())}s</span></div>
     <div class="row"><span class="label">Outbound Container IP</span><span class="value">${lastDiagnostics?.outboundIp || 'Checking...'}</span></div>

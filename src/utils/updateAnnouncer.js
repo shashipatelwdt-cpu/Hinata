@@ -80,9 +80,9 @@ class UpdateAnnouncer {
 
       const botUser = client.user;
       const embed = new EmbedBuilder()
-        .setTitle('🚀 Hinata Bot Updated')
+        .setTitle('🚀 RAW Bot Updated')
         .setDescription(
-          `**${config.botName || 'Hinata'}** has been successfully updated with the latest improvements!\n\n` +
+          `**${config.botName || 'RAW'}** has been successfully updated with the latest improvements!\n\n` +
           `• ⚡ **Fix:** Instant song playback & accurate song streaming\n` +
           `• 🎵 **New:** Spotify-Style Personal Custom Playlists (\`/playlist\` & \`h pl\`)\n` +
           `• 👻 **Feature:** Ghost Ping tracking & command (\`/ghostping\` & \`h ghostping\`)\n` +
@@ -95,7 +95,7 @@ class UpdateAnnouncer {
         .setColor(config.embedColors?.primary || '#5865F2')
         .setThumbnail(botUser.displayAvatarURL({ size: 256 }))
         .setFooter({
-          text: `${config.botName || 'Hinata'} Updates`,
+          text: `${config.botName || 'RAW'} Updates`,
           iconURL: botUser.displayAvatarURL()
         })
         .setTimestamp();
@@ -130,7 +130,7 @@ class UpdateAnnouncer {
       .setDescription(description || 'New updates have been released!')
       .setColor(config.embedColors?.primary || '#5865F2')
       .setThumbnail(client.user.displayAvatarURL({ size: 256 }))
-      .setFooter({ text: `${config.botName || 'Hinata'} Announcement`, iconURL: client.user.displayAvatarURL() })
+      .setFooter({ text: `${config.botName || 'RAW'} Announcement`, iconURL: client.user.displayAvatarURL() })
       .setTimestamp();
 
     if (changes && changes.length > 0) {

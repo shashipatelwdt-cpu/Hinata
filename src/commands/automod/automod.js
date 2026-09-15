@@ -214,7 +214,7 @@ module.exports = {
               inline: false
             }
           )
-          .setFooter({ text: 'Hinata Computer Vision & OCR Security Engine' })
+          .setFooter({ text: 'RAW Computer Vision & OCR Security Engine' })
           .setTimestamp();
 
         return interaction.editReply({ embeds: [embed] });
@@ -405,7 +405,7 @@ module.exports = {
             `### 📝 Sample Blocked Words:\n${displaySample} ...and ${Math.max(0, activeList.length - 45)} more words.\n\n` +
             `*Use \`/automod badwords action:➕ Add Custom Word word:<word>\` to add custom terms.*`
           )
-          .setFooter({ text: 'Hinata Anti-Profanity Defense' });
+          .setFooter({ text: 'RAW Anti-Profanity Defense' });
 
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }

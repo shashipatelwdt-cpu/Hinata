@@ -3,7 +3,7 @@ const { ChannelType } = require('discord.js');
 /**
  * Server Exporter
  * Extracts the current Discord server structure (Roles, Categories, Channels, Topics, Voice Limits)
- * and formats it into clean Hinata JSON or Markdown format.
+ * and formats it into clean RAW JSON or Markdown format.
  */
 class ServerExporter {
   /**

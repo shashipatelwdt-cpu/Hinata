@@ -80,7 +80,7 @@ module.exports = {
         `• ➕ **Create Fresh #general:** \`${createGeneral ? 'YES' : 'NO'}\`\n\n` +
         `🚨 **WARNING:** This action is **irreversible**! All message history, voice channels, and categories will be permanently erased.`
       )
-      .setFooter({ text: `${config.botName || 'Hinata'} • Irreversible Action • 45s Timeout` })
+      .setFooter({ text: `${config.botName || 'RAW'} • Irreversible Action • 45s Timeout` })
       .setTimestamp();
 
     const promptMsg = await interaction.reply({

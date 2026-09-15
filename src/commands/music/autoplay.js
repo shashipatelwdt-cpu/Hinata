@@ -47,7 +47,7 @@ module.exports = {
           : '❌ **Smart Autoplay is now OFF.**\nThe bot will stop and leave the voice channel when the queue finishes.'
       )
       .setColor(isEnabled ? (config.embedColors?.success || '#57F287') : (config.embedColors?.danger || '#ED4245'))
-      .setFooter({ text: 'Hinata Music Engine • AI Recommendations' })
+      .setFooter({ text: 'RAW Music Engine • AI Recommendations' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });

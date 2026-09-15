@@ -181,7 +181,7 @@ module.exports = {
           `• **▶️ Play Playlist:** \`/playlist play name:${res.playlist.name}\``
         )
         .setColor(config.embedColors?.success || '#57F287')
-        .setFooter({ text: 'Spotify-Style Playlists • Hinata Music' })
+        .setFooter({ text: 'Spotify-Style Playlists • RAW Music' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
@@ -229,7 +229,7 @@ module.exports = {
         )
         .setThumbnail(toAdd.thumbnail || interaction.user.displayAvatarURL())
         .setColor(config.embedColors?.success || '#57F287')
-        .setFooter({ text: `${pl.name} • Hinata Playlists` });
+        .setFooter({ text: `${pl.name} • RAW Playlists` });
 
       return interaction.editReply({ embeds: [embed] });
     }
@@ -342,7 +342,7 @@ module.exports = {
         )
         .setThumbnail(tracksToQueue[0].thumbnail || interaction.user.displayAvatarURL())
         .setColor(config.embedColors?.primary || '#5865F2')
-        .setFooter({ text: `${pl.name} • Hinata Spotify-Style Queue` })
+        .setFooter({ text: `${pl.name} • RAW Spotify-Style Queue` })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });

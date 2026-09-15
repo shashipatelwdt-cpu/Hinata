@@ -58,7 +58,7 @@ class ChatHeatMonitor {
       const targetSlowmode = originalSlowmode >= 5 ? 10 : 5;
 
       try {
-        await channel.setRateLimitPerUser(targetSlowmode, 'Hinata HumanMod: Chat heat de-escalation');
+        await channel.setRateLimitPerUser(targetSlowmode, 'RAW HumanMod: Chat heat de-escalation');
 
         // Human-style warm announcement
         const coolEmbed = new EmbedBuilder()
@@ -66,10 +66,10 @@ class ChatHeatMonitor {
           .setTitle('💬 Chat is moving quickly!')
           .setDescription(
             `Chat is moving at high speed right now. ` +
-            `Hinata has enabled a **temporary ${targetSlowmode}s slowmode** to allow everyone to catch their breath and keep the discussion pleasant.\n\n` +
+            `RAW has enabled a **temporary ${targetSlowmode}s slowmode** to allow everyone to catch their breath and keep the discussion pleasant.\n\n` +
             `*This will automatically lift once chat calms down.*`
           )
-          .setFooter({ text: 'Hinata Live Chat Assistant' });
+          .setFooter({ text: 'RAW Live Chat Assistant' });
 
         const notice = await channel.send({ embeds: [coolEmbed] }).catch(() => null);
 
@@ -77,7 +77,7 @@ class ChatHeatMonitor {
         const restoreTimer = setTimeout(async () => {
           try {
             activeSlowmodes.delete(channelId);
-            await channel.setRateLimitPerUser(originalSlowmode, 'Hinata HumanMod: Chat heat cooled down');
+            await channel.setRateLimitPerUser(originalSlowmode, 'RAW HumanMod: Chat heat cooled down');
 
             const restoreNotice = await channel.send({
               content: '✨ **Chat has cooled down!** Restoring normal slowmode. Thanks for keeping it chill everyone!'

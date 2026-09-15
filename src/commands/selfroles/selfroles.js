@@ -179,7 +179,7 @@ module.exports = {
             role = await guild.roles.create({
               name: rDef.name,
               color: rDef.color,
-              reason: `Hinata Self-Roles Preset: ${type}`
+              reason: `RAW Self-Roles Preset: ${type}`
             });
           } catch (e) {
             console.error(`Failed to auto-create role ${rDef.name}:`, e);
@@ -259,7 +259,7 @@ module.exports = {
               role = await guild.roles.create({
                 name: rDef.name,
                 color: rDef.color,
-                reason: `Hinata Onboarding Bundle: ${bKey}`
+                reason: `RAW Onboarding Bundle: ${bKey}`
               });
             } catch (e) {}
           }

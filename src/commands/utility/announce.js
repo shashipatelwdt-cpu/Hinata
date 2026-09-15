@@ -259,7 +259,7 @@ module.exports = {
           `**🔗 Direct Link:** [Click here to view announcement](${sentMessage.url})`
         )
         .setColor(config.embedColors?.success || '#57F287')
-        .setFooter({ text: 'Hinata Announcement System' })
+        .setFooter({ text: 'RAW Announcement System' })
         .setTimestamp();
 
       return interaction.editReply({ embeds: [successEmbed] });

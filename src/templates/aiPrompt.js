@@ -1,7 +1,7 @@
 /**
  * AI Prompt Generator for ChatGPT / Gemini / Claude
  * Generates copy-ready prompts that instruct AI models to output
- * valid JSON / Markdown server blueprints for Hinata bot.
+ * valid JSON / Markdown server blueprints for RAW bot.
  */
 
 class AIPromptGenerator {

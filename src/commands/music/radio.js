@@ -81,7 +81,7 @@ module.exports = {
         `The bot will continuously stream seamless songs matching this vibe, artist, and genre non-stop!`
       )
       .setColor(config.embedColors?.primary || '#5865F2')
-      .setFooter({ text: 'Hinata Radio Engine • Spotify & YouTube Taste Algorithm' })
+      .setFooter({ text: 'RAW Radio Engine • Spotify & YouTube Taste Algorithm' })
       .setTimestamp();
 
     if (startingTrack.thumbnail) {

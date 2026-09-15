@@ -153,7 +153,7 @@ class GuildQueue {
                     .setTitle('📻 Smart Autoplay • Matching Your Taste')
                     .setDescription(`Upcoming next track based on **${seedSong.title}**:\n**[${recSong.title}](${recSong.url})**`)
                     .setColor(config.embedColors?.primary || '#5865F2')
-                    .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'Music'}` })
+                    .setFooter({ text: `RAW Smart Radio • ${recSong.author || 'Music'}` })
                 ]
               }).then(m => setTimeout(() => m.delete().catch(() => null), 8000)).catch(() => null);
             }
@@ -700,7 +700,7 @@ class GuildQueue {
                   .setTitle('📻 Smart Autoplay • Matching Your Taste')
                   .setDescription(`Auto-queueing next track based on **${prevSong.title}**:\n**[${recSong.title}](${recSong.url})**`)
                   .setColor(config.embedColors?.primary || '#5865F2')
-                  .setFooter({ text: `Hinata Smart Radio • ${recSong.author || 'Music'}` })
+                  .setFooter({ text: `RAW Smart Radio • ${recSong.author || 'Music'}` })
               ]
             }).then(m => setTimeout(() => m.delete().catch(() => null), 9000)).catch(() => null);
           }
@@ -895,7 +895,7 @@ class GuildQueue {
     }
 
     embed.setFooter({
-      text: `Hinata Music Engine • Autoplay: ${this.autoplay ? 'ENABLED' : 'DISABLED'} • Loop: ${this.loopMode.toUpperCase()}`,
+      text: `RAW Music Engine • Autoplay: ${this.autoplay ? 'ENABLED' : 'DISABLED'} • Loop: ${this.loopMode.toUpperCase()}`,
       iconURL: this.guild.client.user.displayAvatarURL()
     });
 
@@ -1099,7 +1099,7 @@ class GuildQueue {
                 .setTitle('👋 Voice Channel Inactive')
                 .setDescription(`Disconnected from **${currentChannel.name || 'Voice Channel'}** because everyone left the channel.`)
                 .setColor(config.embedColors?.neutral || '#2B2D31')
-                .setFooter({ text: `${config.botName || 'Hinata'} • Auto Inactive Leave` })
+                .setFooter({ text: `${config.botName || 'RAW'} • Auto Inactive Leave` })
             ]
           }).then(m => setTimeout(() => m.delete().catch(() => null), 15000)).catch(() => null);
         }

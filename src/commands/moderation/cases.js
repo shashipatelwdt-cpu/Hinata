@@ -86,7 +86,7 @@ module.exports = {
         .setTitle(`📋 Case File: ${modCase.caseId}`)
         .addFields(
           { name: '👤 Target Member', value: `<@${modCase.userId}> (\`${modCase.userTag}\`)`, inline: true },
-          { name: '🛡️ Enforcing Staff', value: modCase.modId === 'AUTOMOD' ? '🤖 Hinata HumanMod' : `<@${modCase.modId}> (\`${modCase.modTag}\`)`, inline: true },
+          { name: '🛡️ Enforcing Staff', value: modCase.modId === 'AUTOMOD' ? '🤖 RAW HumanMod' : `<@${modCase.modId}> (\`${modCase.modTag}\`)`, inline: true },
           { name: '⚖️ Action Taken', value: `\`${modCase.action}\`${modCase.duration ? ` (${modCase.duration})` : ''}`, inline: true },
           { name: '📌 Status', value: statusEmoji, inline: true },
           { name: '📅 Date & Time', value: `<t:${Math.floor(new Date(modCase.timestamp).getTime() / 1000)}:F>`, inline: true },
@@ -114,7 +114,7 @@ module.exports = {
         });
       }
 
-      embed.setFooter({ text: `Hinata Case System • Guild ID: ${guildId}` });
+      embed.setFooter({ text: `RAW Case System • Guild ID: ${guildId}` });
       return interaction.reply({ embeds: [embed] });
     }
 
@@ -149,7 +149,7 @@ module.exports = {
         embed.addFields({ name: '📋 Recent Cases (Last 10)', value: caseLines });
       }
 
-      embed.setFooter({ text: 'Hinata Disciplinary Record' }).setTimestamp();
+      embed.setFooter({ text: 'RAW Disciplinary Record' }).setTimestamp();
       return interaction.reply({ embeds: [embed] });
     }
 
@@ -180,7 +180,7 @@ module.exports = {
         embed.addFields({ name: '⏳ Expiration Timers', value: strikeLines });
       }
 
-      embed.setFooter({ text: 'Hinata Strike Engine' });
+      embed.setFooter({ text: 'RAW Strike Engine' });
       return interaction.reply({ embeds: [embed] });
     }
 

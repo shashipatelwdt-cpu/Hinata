@@ -104,7 +104,7 @@ class TemplateBuilderEngine {
         .setColor(config.embedColors.primary || '#5865F2')
         .setTitle(`⚡ 1-Click Server Setup: ${template.name}`)
         .setDescription(
-          `Please wait while **${config.botName || 'Hinata'}** sets up your entire server...\n\n` +
+          `Please wait while **${config.botName || 'RAW'}** sets up your entire server...\n\n` +
           `**Progress:** \`[${bar}] ${progressPercent}%\`\n` +
           `**Current Task:** ${step}\n` +
           `**Estimated Time Remaining:** \`~${remainingSeconds}s\``
@@ -120,7 +120,7 @@ class TemplateBuilderEngine {
     try {
       // 1. Reset Database & Delete old channels and roles if requested
       if (deleteOld) {
-        // Reset Hinata bot database settings for this guild
+        // Reset RAW bot database settings for this guild
         DatabaseManager.resetGuild(guild.id);
 
         // Delete old channels in fast concurrent batches of 4
@@ -558,7 +558,7 @@ class TemplateBuilderEngine {
             `4️⃣ **🎫 Support:** Need assistance? Open a ticket anytime in ${createdTicketsChannel ? `<#${createdTicketsChannel.id}>` : '#support-tickets'}.`
           )
           .setThumbnail(guild.iconURL({ dynamic: true, size: 256 }))
-          .setFooter({ text: `${config.botName || 'Hinata'} • Official Welcome Channel` })
+          .setFooter({ text: `${config.botName || 'RAW'} • Official Welcome Channel` })
           .setTimestamp();
 
         await createdWelcomeChannel.send({ embeds: [welcomeOverviewEmbed] }).catch(() => null);
@@ -619,7 +619,7 @@ class TemplateBuilderEngine {
                 resolvedPings.map(r => `${r.emoji} **${r.name}** — <@&${r.roleId}>`).join('\n') +
                 `\n\n*Select or unselect roles from the dropdown menu below!*`
               )
-              .setFooter({ text: 'Instant Self-Roles • Hinata' });
+              .setFooter({ text: 'Instant Self-Roles • RAW' });
 
             await createdRolesChannel.send({ embeds: [notifsEmbed], components: [notifsRow] }).catch(() => null);
           }
@@ -710,7 +710,7 @@ class TemplateBuilderEngine {
             .setColor(config.embedColors.warning || '#FEE75C')
             .setTitle('🛡️ Moderation & Audit System Initialized')
             .setDescription(
-              `**${config.botName || 'Hinata'} AutoMod & Audit Stream** is now active for **${guild.name}**.\n\n` +
+              `**${config.botName || 'RAW'} AutoMod & Audit Stream** is now active for **${guild.name}**.\n\n` +
               `### 📋 Active Security & Moderation Modules:\n` +
               `• 🚫 **Anti-Discord-Invite:** ✅ Active (Auto-Delete & Audit Log)\n` +
               `• ⚡ **Anti-Spam Flooding:** ✅ Active (5 msgs / 4s flood filter)\n` +
@@ -748,7 +748,7 @@ class TemplateBuilderEngine {
               `• ⚔️ **Moderators:** ${modRoleCreated ? `<@&${modRoleCreated.id}>` : 'Moderator'}\n` +
               `• 📜 **ModLogs:** ${createdModLogChannel ? `<#${createdModLogChannel.id}>` : 'Configured'}`
             )
-            .setFooter({ text: `${config.botName || 'Hinata'} • Server Moderation System Ready` })
+            .setFooter({ text: `${config.botName || 'RAW'} • Server Moderation System Ready` })
             .setTimestamp();
 
           await createdStaffChatChannel.send({ embeds: [staffHQEmbed] }).catch(() => null);
@@ -775,7 +775,7 @@ class TemplateBuilderEngine {
             `• ⚡ **AutoMod Shields:** Anti-Spam, Anti-Invite & 250+ Hindi/Hinglish Bad Words Filter Active!\n\n` +
             `*Enjoy your stay and have fun!*`
           )
-          .setFooter({ text: `${config.botName || 'Hinata'} • 1-Click Server Setup Complete` })
+          .setFooter({ text: `${config.botName || 'RAW'} • 1-Click Server Setup Complete` })
           .setTimestamp();
 
         await finalTargetChannel.send({ embeds: [celebrationEmbed] }).catch(() => null);
@@ -798,7 +798,7 @@ class TemplateBuilderEngine {
           `• ⚡ **AutoMod Defense:** Anti-Spam, Anti-Invite, Anti-MassMention, Anti-GhostPing & 250+ Hindi/Hinglish Filter ✅\n\n` +
           `> 💡 *Everything is 100% automated and ready for members to join!*`
         )
-        .setFooter({ text: `${config.botName || 'Hinata'} • 1-Click Server Builder` })
+        .setFooter({ text: `${config.botName || 'RAW'} • 1-Click Server Builder` })
         .setTimestamp();
 
       // ALWAYS edit reply first so the interaction NEVER fails in Discord

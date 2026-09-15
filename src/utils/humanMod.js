@@ -74,7 +74,7 @@ class HumanMod {
           `Hey ${user}, we noticed your message conflicted with our rules (*${infraction.rule}*).\n\n` +
           `Please remember to keep our chat friendly and respectful. No penalties have been applied — just a polite heads-up!`
         )
-        .setFooter({ text: 'Hinata HumanMod • Stage 1 Friendly Reminder' });
+        .setFooter({ text: 'RAW HumanMod • Stage 1 Friendly Reminder' });
 
       const noticeMsg = await message.channel.send({ embeds: [reminderEmbed] }).catch(() => null);
       if (noticeMsg) {
@@ -104,7 +104,7 @@ class HumanMod {
       actionApplied = '10-Minute Cool-Off Timeout';
 
       if (canModerate && botMember.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-        await member.timeout(durationMs, `Hinata HumanMod Stage 2: ${infraction.rule}`).catch(() => null);
+        await member.timeout(durationMs, `RAW HumanMod Stage 2: ${infraction.rule}`).catch(() => null);
       }
 
       // Record Strike
@@ -116,7 +116,7 @@ class HumanMod {
         userId: user.id,
         userTag: user.tag,
         modId: botMember?.id || 'AUTOMOD',
-        modTag: 'Hinata HumanMod',
+        modTag: 'RAW HumanMod',
         action: '10m Timeout',
         reason: infraction.rule,
         detail: infraction.detail,
@@ -156,7 +156,7 @@ class HumanMod {
       actionApplied = '1-Hour Timeout & Strike';
 
       if (canModerate && botMember.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-        await member.timeout(durationMs, `Hinata HumanMod Stage 3: ${infraction.rule}`).catch(() => null);
+        await member.timeout(durationMs, `RAW HumanMod Stage 3: ${infraction.rule}`).catch(() => null);
       }
 
       const strikeRes = DatabaseManager.addStrike(guild.id, user.id, infraction.rule, decayDays);
@@ -166,7 +166,7 @@ class HumanMod {
         userId: user.id,
         userTag: user.tag,
         modId: botMember?.id || 'AUTOMOD',
-        modTag: 'Hinata HumanMod',
+        modTag: 'RAW HumanMod',
         action: '1h Timeout + Strike',
         reason: infraction.rule,
         detail: infraction.detail,
@@ -203,7 +203,7 @@ class HumanMod {
       actionApplied = '24-Hour Timeout & Final Strike';
 
       if (canModerate && botMember.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-        await member.timeout(durationMs, `Hinata HumanMod Stage 4: ${infraction.rule}`).catch(() => null);
+        await member.timeout(durationMs, `RAW HumanMod Stage 4: ${infraction.rule}`).catch(() => null);
       }
 
       const strikeRes = DatabaseManager.addStrike(guild.id, user.id, infraction.rule, decayDays);
@@ -213,7 +213,7 @@ class HumanMod {
         userId: user.id,
         userTag: user.tag,
         modId: botMember?.id || 'AUTOMOD',
-        modTag: 'Hinata HumanMod',
+        modTag: 'RAW HumanMod',
         action: '24h Timeout + Final Warning',
         reason: infraction.rule,
         detail: infraction.detail,
@@ -254,11 +254,11 @@ class HumanMod {
 
       if (canModerate) {
         if (isBan && botMember.permissions.has(PermissionFlagsBits.BanMembers)) {
-          await member.ban({ reason: `Hinata HumanMod Stage 5: Repeat infractions (${infraction.rule})` }).catch(() => null);
+          await member.ban({ reason: `RAW HumanMod Stage 5: Repeat infractions (${infraction.rule})` }).catch(() => null);
           removed = true;
           actionApplied = 'Server Ban';
         } else if (botMember.permissions.has(PermissionFlagsBits.KickMembers)) {
-          await member.kick(`Hinata HumanMod Stage 5: Repeat infractions (${infraction.rule})`).catch(() => null);
+          await member.kick(`RAW HumanMod Stage 5: Repeat infractions (${infraction.rule})`).catch(() => null);
           removed = true;
           actionApplied = 'Server Kick';
         }
@@ -268,7 +268,7 @@ class HumanMod {
         userId: user.id,
         userTag: user.tag,
         modId: botMember?.id || 'AUTOMOD',
-        modTag: 'Hinata HumanMod',
+        modTag: 'RAW HumanMod',
         action: actionApplied,
         reason: `Maximum disciplinary strikes reached (${infraction.rule})`,
         detail: infraction.detail,

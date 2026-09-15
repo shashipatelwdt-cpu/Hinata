@@ -138,7 +138,7 @@ class ChannelWiper {
           `• Run \`/template list\` to browse 37+ themed server templates.\n` +
           `• Run \`/setup\` to configure individual bot features.`
         )
-        .setFooter({ text: `${config.botName || 'Hinata'} • Server Reset Engine` })
+        .setFooter({ text: `${config.botName || 'RAW'} • Server Reset Engine` })
         .setTimestamp();
 
       if (newChannel) {

@@ -230,7 +230,7 @@ module.exports = {
           embeds: [
             EmbedUtils.error(
               'Missing Permissions',
-              'Hinata requires both **Manage Roles** and **Manage Channels** permissions to automatically create and configure the Leveling Bundle.'
+              'RAW requires both **Manage Roles** and **Manage Channels** permissions to automatically create and configure the Leveling Bundle.'
             )
           ]
         });
@@ -340,7 +340,7 @@ module.exports = {
           embeds: [
             EmbedUtils.warning(
               'Role Hierarchy Warning',
-              `Role <@&${role.id}> is higher than or equal to Hinata's highest role! Please move Hinata's role above <@&${role.id}> in Server Settings > Roles so the bot can assign it.`
+              `Role <@&${role.id}> is higher than or equal to RAW's highest role! Please move RAW's role above <@&${role.id}> in Server Settings > Roles so the bot can assign it.`
             )
           ],
           ephemeral: true

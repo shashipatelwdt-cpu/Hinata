@@ -107,7 +107,7 @@ class CrisisSentry {
           inline: false
         }
       )
-      .setFooter({ text: 'Hinata Welfare Sentry • Confidential & Caring Support' })
+      .setFooter({ text: 'RAW Welfare Sentry • Confidential & Caring Support' })
       .setTimestamp();
   }
 

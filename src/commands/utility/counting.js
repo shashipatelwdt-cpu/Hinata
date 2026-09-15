@@ -93,7 +93,7 @@ module.exports = {
           `🏆 **All-Time Record:** **${counting.highScore || 0}**`
         )
         .setColor(config.embedColors?.primary || '#5865F2')
-        .setFooter({ text: 'Hinata Next-Gen Counting Engine' })
+        .setFooter({ text: 'RAW Next-Gen Counting Engine' })
         .setTimestamp();
 
       await channel.send({ embeds: [embed] }).catch(() => null);
@@ -138,7 +138,7 @@ module.exports = {
             inline: false 
           }
         )
-        .setFooter({ text: 'Hinata Counting Engine' })
+        .setFooter({ text: 'RAW Counting Engine' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });

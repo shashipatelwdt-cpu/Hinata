@@ -85,7 +85,7 @@ module.exports = {
           `• Your AFK status will be automatically removed when you send a message.`
         )
         .setColor(config.embedColors?.info || '#5865F2')
-        .setFooter({ text: nickChanged ? 'Nickname updated with [AFK] prefix' : 'Hinata AFK Engine' })
+        .setFooter({ text: nickChanged ? 'Nickname updated with [AFK] prefix' : 'RAW AFK Engine' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
@@ -145,7 +145,7 @@ module.exports = {
         .setTitle(`💤 AFK Members in ${guild.name} (${afkList.length})`)
         .setDescription(lines.join('\n'))
         .setColor(config.embedColors?.neutral || '#2B2D31')
-        .setFooter({ text: 'Hinata AFK Engine' })
+        .setFooter({ text: 'RAW AFK Engine' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });

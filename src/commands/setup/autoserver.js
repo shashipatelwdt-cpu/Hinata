@@ -185,7 +185,7 @@ module.exports = {
         `⚠️ **Warning:** Starting clean will delete all existing channels in this server.\n` +
         `Click **🚀 Launch 1-Click Server Setup** below to begin!`
       )
-      .setFooter({ text: `${config.botName || 'Hinata'} • 1-Click Server Builder` })
+      .setFooter({ text: `${config.botName || 'RAW'} • 1-Click Server Builder` })
       .setTimestamp();
 
     const confirmBtn = new ButtonBuilder()

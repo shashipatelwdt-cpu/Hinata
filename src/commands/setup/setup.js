@@ -36,10 +36,10 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(config.embedColors.primary || '#5865F2')
-      .setTitle(`⚙️ ${config.botName || 'Hinata'} - Setup Dashboard`)
+      .setTitle(`⚙️ ${config.botName || 'RAW'} - Setup Dashboard`)
       .setThumbnail(interaction.guild.iconURL({ dynamic: true, size: 256 }))
       .setDescription(
-        `Welcome to the **${config.botName || 'Hinata'} Bot Control Panel** for **${interaction.guild.name}**!\n` +
+        `Welcome to the **${config.botName || 'RAW'} Bot Control Panel** for **${interaction.guild.name}**!\n` +
         `Below is the current configuration status of your server modules.\n\n` +
         `### ⚡ 1-Click Automated Setup\n` +
         `• **🚀 Instant Full Server Setup:** Use \`/autoserver\` or click the **1-Click Auto Setup** button below to create entire layouts, write rules, configure tickets & stats in 1-click!\n\n` +
@@ -55,7 +55,7 @@ module.exports = {
         `• **🎭 Self-Roles Menus:** \`/selfroles preset\` (Gaming, Colors, Notifications)\n` +
         `• **🏗️ Server Templates:** \`/template list\` (37+ Themes & Xenon Importer)`
       )
-      .setFooter({ text: `${config.botName || 'Hinata'} All-In-One Bot • Discord.js v14` })
+      .setFooter({ text: `${config.botName || 'RAW'} All-In-One Bot • Discord.js v14` })
       .setTimestamp();
 
     const row1 = new ActionRowBuilder().addComponents(

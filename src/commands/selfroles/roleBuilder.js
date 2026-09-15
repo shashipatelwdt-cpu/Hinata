@@ -74,7 +74,7 @@ module.exports = {
         .setColor(config.embedColors.primary)
         .setTitle('👑 Automatic Role Builder Format Guide')
         .setDescription(
-          `You can copy-paste any role list with category titles and emojis, and Hinata will automatically:\n` +
+          `You can copy-paste any role list with category titles and emojis, and RAW will automatically:\n` +
           `• Detect category groups\n` +
           `• Assign matching HEX colors automatically (or custom \`#HEX\` in brackets)\n` +
           `• Enable Hoisting for staff/ranks and Ping permissions for notification roles!\n\n` +
@@ -84,7 +84,7 @@ module.exports = {
           name: '🚀 How to use:',
           value: 'Run `/role-builder create` to open a popup paste box or pass `roles_text` directly!'
         })
-        .setFooter({ text: 'Hinata Automatic Role Builder' });
+        .setFooter({ text: 'RAW Automatic Role Builder' });
 
       return interaction.reply({ embeds: [embed] });
     }
@@ -208,7 +208,7 @@ module.exports = {
                 color: rDef.color,
                 hoist: rDef.hoist,
                 mentionable: rDef.mentionable,
-                reason: `Hinata Bulk Role Builder by ${interaction.user.tag}`
+                reason: `RAW Bulk Role Builder by ${interaction.user.tag}`
               });
               createdRoles.push(newRole);
             } catch (e) {
@@ -239,7 +239,7 @@ module.exports = {
             (failedRoles.length > 0 ? `• ⚠️ **Failed (Check Permissions):** \`${failedRoles.length}\`\n` : '') +
             `\n*All roles are now ready in your server settings!*`
           )
-          .setFooter({ text: 'Hinata Role Builder • Server Ready' })
+          .setFooter({ text: 'RAW Role Builder • Server Ready' })
           .setTimestamp();
 
         return i.editReply({ embeds: [successEmbed], components: [] });

@@ -1,5 +1,5 @@
 /**
- * Pre-Made High Quality Welcome Message Templates Catalog for Hinata Discord Bot
+ * Pre-Made High Quality Welcome Message Templates Catalog for RAW Discord Bot
  */
 
 const welcomeTemplates = [

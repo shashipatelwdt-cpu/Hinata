@@ -22,13 +22,20 @@ class PrefixCommandHandler {
     const guildSettings = DatabaseManager.getGuild(message.guild.id);
     const customPrefix = guildSettings.prefix || config.defaultPrefix || 'h';
 
-    // List of accepted prefixes
+    // List of accepted prefixes (supports both r and h)
     const prefixes = [
       customPrefix.toLowerCase(),
+      'r ',
+      'r!',
+      'r.',
+      'r-',
+      'raw ',
+      'raw!',
       'h ',
       'h!',
       'h.',
       'h-',
+      'r',
       'h'
     ];
 
@@ -58,11 +65,11 @@ class PrefixCommandHandler {
     const rawWithoutPrefix = content.slice(matchedPrefix.length).trim();
     if (!rawWithoutPrefix) {
       // User just typed 'h' or mentioned bot -> show quick help
-      if (matchedPrefix.trim().toLowerCase() === 'h' || matchedPrefix.startsWith('<@')) {
+      if (matchedPrefix.trim().toLowerCase() === 'h' || matchedPrefix.trim().toLowerCase() === 'r' || matchedPrefix.startsWith('<@')) {
         const helpEmbed = new EmbedBuilder()
-          .setTitle(`🎵 ${config.botName || 'Hinata'} Music & Prefix Commands`)
+          .setTitle(`🎵 ${config.botName || 'RAW'} Music & Prefix Commands`)
           .setDescription(
-            `Hey ${message.author}! Use prefix commands starting with \`h \` or slash commands \`/\`.\n\n` +
+            `Hey ${message.author}! Use prefix commands starting with \`r \` (or \`h \`) or slash commands \`/\`.\n\n` +
             `**🎶 Music Commands:**\n` +
             `• \`h play <song / url>\` — Play music from YouTube, Spotify or SoundCloud\n` +
             `• \`h pause\` / \`h resume\` — Pause or unpause track\n` +
@@ -274,7 +281,7 @@ class PrefixCommandHandler {
         const queue = MusicManager.getQueue(message.guild.id);
         if (!queue) {
           return message.reply({
-            embeds: [EmbedUtils.error('Nothing Playing', 'Hinata is not currently playing music in this server!')]
+            embeds: [EmbedUtils.error('Nothing Playing', `${config.botName || 'RAW'} is not currently playing music in this server!`)]
           });
         }
 
@@ -385,7 +392,7 @@ class PrefixCommandHandler {
           )
           .setColor(config.embedColors?.primary || '#5865F2')
           .setFooter({
-            text: `Hinata Music System • ${queue.songs.length} song(s) in queue`,
+            text: `${config.botName || 'RAW'} Music System • ${queue.songs.length} song(s) in queue`,
             iconURL: message.guild.iconURL()
           })
           .setTimestamp();
@@ -565,14 +572,14 @@ class PrefixCommandHandler {
       case 'panel':
       case 'musicpanel': {
         const embed = new EmbedBuilder()
-          .setTitle('🎵 Hinata Master Music Panel')
+          .setTitle(`🎵 ${config.botName || 'RAW'} Master Music Panel`)
           .setDescription(
             'Control high-fidelity music streaming with the buttons below or chat commands.\n\n' +
-            '**Command Syntax:** `h play <song name or link>`\n' +
+            '**Command Syntax:** `r play <song name or link>` (or `h play`)\n' +
             '**Supported:** YouTube, Spotify, SoundCloud, Playlists'
           )
           .setColor(config.embedColors?.primary || '#5865F2')
-          .setFooter({ text: 'Hinata Music • 24/7 High Quality Audio' });
+          .setFooter({ text: `${config.botName || 'RAW'} Music • 24/7 High Quality Audio` });
 
         const queue = MusicManager.getQueue(message.guild.id);
         const rows = queue ? queue.buildControlsRow() : MusicManager.createQueue(message.guild, message.member?.voice?.channel || { id: '0' }, message.channel).buildControlsRow();
@@ -614,7 +621,7 @@ class PrefixCommandHandler {
               : '❌ **Smart Autoplay is now OFF.**\nThe bot will stop when the queue finishes.'
           )
           .setColor(isEnabled ? (config.embedColors?.success || '#57F287') : (config.embedColors?.danger || '#ED4245'))
-          .setFooter({ text: 'Hinata Music Engine • AI Recommendations' })
+          .setFooter({ text: `${config.botName || 'RAW'} Music Engine • AI Recommendations` })
           .setTimestamp();
 
         if (queue.nowPlayingMessage) {
@@ -677,7 +684,7 @@ class PrefixCommandHandler {
               `The bot will continuously stream seamless songs matching this vibe and genre non-stop!`
             )
             .setColor(config.embedColors?.primary || '#5865F2')
-            .setFooter({ text: 'Hinata Radio Engine • Spotify & YouTube Taste Algorithm' })
+            .setFooter({ text: `${config.botName || 'RAW'} Radio Engine • Spotify & YouTube Taste Algorithm` })
             .setTimestamp();
 
           if (startingTrack.thumbnail) {
@@ -764,7 +771,7 @@ class PrefixCommandHandler {
               `*You can also use Slash Command: \`/playlist\`*`
             )
             .setColor(config.embedColors?.primary || '#5865F2')
-            .setFooter({ text: 'Hinata Music • Spotify Playlists' });
+            .setFooter({ text: `${config.botName || 'RAW'} Music • Spotify Playlists` });
           return message.reply({ embeds: [plHelp] });
         }
 
@@ -912,7 +919,7 @@ class PrefixCommandHandler {
             .setTitle(`▶️ Playing Playlist • ${pl.name}`)
             .setDescription(`Enqueued **${tracksToQueue.length} songs** into the music queue!${shuffle ? ' *(Shuffled)*' : ''}`)
             .setColor(config.embedColors?.primary || '#5865F2')
-            .setFooter({ text: `${pl.name} • Hinata Spotify-Style Queue` });
+            .setFooter({ text: `${pl.name} • ${config.botName || 'RAW'} Spotify-Style Queue` });
 
           await message.reply({ embeds: [embed] });
 
@@ -1544,7 +1551,7 @@ class PrefixCommandHandler {
           .setColor(config.embedColors?.primary || '#5865F2')
           .setTitle(`👑 ${message.guild.name} • Honor Leaderboard`)
           .setDescription(lines.join('\n\n'))
-          .setFooter({ text: 'Hinata Honor Engine' })
+          .setFooter({ text: `${config.botName || 'RAW'} Honor Engine` })
           .setTimestamp();
 
         await message.reply({ embeds: [lbEmbed] });
@@ -1571,7 +1578,7 @@ class PrefixCommandHandler {
           .setTitle(`📋 Case File: ${modCase.caseId}`)
           .addFields(
             { name: '👤 Target Member', value: `<@${modCase.userId}> (\`${modCase.userTag}\`)`, inline: true },
-            { name: '🛡️ Enforcing Staff', value: modCase.modId === 'AUTOMOD' ? '🤖 Hinata HumanMod' : `<@${modCase.modId}> (\`${modCase.modTag}\`)`, inline: true },
+            { name: '🛡️ Enforcing Staff', value: modCase.modId === 'AUTOMOD' ? `🤖 ${config.botName || 'RAW'} HumanMod` : `<@${modCase.modId}> (\`${modCase.modTag}\`)`, inline: true },
             { name: '⚖️ Action Taken', value: `\`${modCase.action}\`${modCase.duration ? ` (${modCase.duration})` : ''}`, inline: true },
             { name: '📌 Status', value: statusEmoji, inline: true },
             { name: '📅 Date', value: `<t:${Math.floor(new Date(modCase.timestamp).getTime() / 1000)}:R>`, inline: true },
@@ -1584,7 +1591,7 @@ class PrefixCommandHandler {
         if (modCase.status === 'pardoned') {
           caseEmbed.addFields({ name: '🕊️ Pardon Reason', value: `Pardoned by **${modCase.pardonedBy}**: ${modCase.pardonReason || 'Discretionary pardon'}` });
         }
-        caseEmbed.setFooter({ text: 'Hinata Disciplinary Records' });
+        caseEmbed.setFooter({ text: `${config.botName || 'RAW'} Disciplinary Records` });
         await message.reply({ embeds: [caseEmbed] });
         return true;
       }
@@ -1621,7 +1628,7 @@ class PrefixCommandHandler {
           }).join('\n');
           histEmbed.addFields({ name: '📋 Recent Cases (Last 10)', value: lines });
         }
-        histEmbed.setFooter({ text: 'Hinata Disciplinary Records' }).setTimestamp();
+        histEmbed.setFooter({ text: `${config.botName || 'RAW'} Disciplinary Records` }).setTimestamp();
         await message.reply({ embeds: [histEmbed] });
         return true;
       }
@@ -1702,39 +1709,39 @@ class PrefixCommandHandler {
       case 'help':
       case 'commands': {
         const helpEmbed = new EmbedBuilder()
-          .setTitle(`🌟 ${config.botName || 'Hinata'} Command Guide`)
+          .setTitle(`🌟 ${config.botName || 'RAW'} Command Guide`)
           .setDescription(
-            `You can use both **Prefix Commands (\`h <command>\`)** and **Slash Commands (\`/<command>\`)**!\n\n` +
+            `You can use both **Prefix Commands (\`r <command>\` or \`h <command>\`)** and **Slash Commands (\`/<command>\`)**!\n\n` +
             `**🎵 Music Commands:**\n` +
-            `• \`h play <song / url>\` — Play any song or playlist (\`h p <name>\`)\n` +
-            `• \`h pause\` / \`h resume\` — Pause or unpause music playback\n` +
-            `• \`h skip [to]\` — Skip song or jump to queue track (\`h s\`)\n` +
-            `• \`h stop\` — Stop music, clear queue & leave voice (\`h dc\`)\n` +
-            `• \`h queue [page]\` — View songs queue (\`h q\`)\n` +
-            `• \`h np\` — Now playing song info with control buttons\n` +
-            `• \`h volume <0-150>\` — Set playback volume (\`h vol 80\`)\n` +
-            `• \`h loop\` — Toggle song / queue loop mode\n` +
-            `• \`h shuffle\` — Randomize songs in queue\n` +
-            `• \`h lyrics [song]\` — Search song lyrics (\`h ly\`)\n` +
-            `• \`h panel\` — Create interactive music control panel\n\n` +
+            `• \`r play <song / url>\` — Play any song or playlist (\`r p <name>\`)\n` +
+            `• \`r pause\` / \`r resume\` — Pause or unpause music playback\n` +
+            `• \`r skip [to]\` — Skip song or jump to queue track (\`r s\`)\n` +
+            `• \`r stop\` — Stop music, clear queue & leave voice (\`r dc\`)\n` +
+            `• \`r queue [page]\` — View songs queue (\`r q\`)\n` +
+            `• \`r np\` — Now playing song info with control buttons\n` +
+            `• \`r volume <0-150>\` — Set playback volume (\`r vol 80\`)\n` +
+            `• \`r loop\` — Toggle song / queue loop mode\n` +
+            `• \`r shuffle\` — Randomize songs in queue\n` +
+            `• \`r lyrics [song]\` — Search song lyrics (\`r ly\`)\n` +
+            `• \`r panel\` — Create interactive music control panel\n\n` +
             `**🎖️ Honor & Reputation Commands:**\n` +
-            `• \`h honor @user [category] [reason]\` — Commend teammate & grant Honor\n` +
-            `• \`h honorprofile [@user]\` — View Honor level, badges & progress\n` +
-            `• \`h honorlb\` — View Top 10 most honorable members\n\n` +
+            `• \`r honor @user [category] [reason]\` — Commend teammate & grant Honor\n` +
+            `• \`r honorprofile [@user]\` — View Honor level, badges & progress\n` +
+            `• \`r honorlb\` — View Top 10 most honorable members\n\n` +
             `**🛠️ Utility & Moderation Commands:**\n` +
-            `• \`h rank [@user]\` — View AmariBot-style Level & XP rank card\n` +
-            `• \`h ghostping\` — View who ghost pinged whom\n` +
-            `• \`h snipe\` — View recently deleted message in channel\n` +
-            `• \`h announce\` — Send server announcements with custom embeds\n` +
-            `• \`h ping\` — Check bot latency & status\n` +
-            `• \`h avatar [@user]\` — View user avatar\n` +
-            `• \`h help\` — Show this help manual\n` +
+            `• \`r rank [@user]\` — View AmariBot-style Level & XP rank card\n` +
+            `• \`r ghostping\` — View who ghost pinged whom\n` +
+            `• \`r snipe\` — View recently deleted message in channel\n` +
+            `• \`r announce\` — Send server announcements with custom embeds\n` +
+            `• \`r ping\` — Check bot latency & status\n` +
+            `• \`r avatar [@user]\` — View user avatar\n` +
+            `• \`r help\` — Show this help manual\n` +
             `• \`/setup\` — Server Auto-Setup & Templates\n` +
             `• \`/automod\` — Anti-Spam, Anti-Link & Anti-Scam filter\n` +
             `• \`/honor setup\` — Configure Honor role rewards & auto-roles`
           )
           .setColor(config.embedColors?.primary || '#5865F2')
-          .setFooter({ text: 'Hinata Bot • Powered by Antigravity' })
+          .setFooter({ text: `${config.botName || 'RAW'} Bot • Powered by Antigravity` })
           .setTimestamp();
 
         return message.reply({ embeds: [helpEmbed] });

@@ -344,7 +344,7 @@ module.exports = {
           `• ⏱️ **Estimated Duration:** \`~${estSeconds} seconds\`\n\n` +
           `**Click "Yes, Transform My Server" below to proceed.**`
         )
-        .setFooter({ text: 'Hinata Server Template Engine • Irreversible Action' })
+        .setFooter({ text: 'RAW Server Template Engine • Irreversible Action' })
         .setTimestamp();
 
       let promptMsg;
@@ -647,7 +647,7 @@ module.exports = {
           value: `\`\`\`markdown\n${promptText.slice(0, 1000)}\n...\`\`\``,
           inline: false
         })
-        .setFooter({ text: 'Hinata Server Blueprint Engine' })
+        .setFooter({ text: 'RAW Server Blueprint Engine' })
         .setTimestamp();
 
       const copyBtn = new ButtonBuilder()
@@ -688,7 +688,7 @@ module.exports = {
           `• 📄 **Format:** \`${format.toUpperCase()}\`\n\n` +
           `You can import this file anytime using \`/template custom file:<upload>\`!`
         )
-        .setFooter({ text: 'Hinata Template Exporter' })
+        .setFooter({ text: 'RAW Template Exporter' })
         .setTimestamp();
 
       const fileBuffer = Buffer.from(exportData.content, 'utf-8');
@@ -733,7 +733,7 @@ module.exports = {
           `• ➕ **Create Fresh #general:** \`${createGeneral ? 'YES' : 'NO'}\`\n\n` +
           `🚨 **WARNING:** This action is **irreversible**! All message history and channels will be permanently erased.`
         )
-        .setFooter({ text: 'Hinata Server Template Engine • 45s Timeout' })
+        .setFooter({ text: 'RAW Server Template Engine • 45s Timeout' })
         .setTimestamp();
 
       const promptMsg = await interaction.reply({

@@ -436,7 +436,7 @@ module.exports = {
                 color: def.color,
                 hoist: true,
                 mentionable: false,
-                reason: 'Hinata Honor System Auto-Role Creation'
+                reason: 'RAW Honor System Auto-Role Creation'
               }).catch(() => null);
             }
             if (existingRole) {
@@ -469,7 +469,7 @@ module.exports = {
           (createdNames.length > 0 ? `✨ **Auto-Created Roles:** ${createdNames.join(', ')}\n` : '') +
           `*Members can now earn commendations and automatically unlock these roles!*`
         )
-        .setFooter({ text: 'Hinata Honor Engine' })
+        .setFooter({ text: 'RAW Honor Engine' })
         .setTimestamp();
 
       return interaction.editReply({ embeds: [setupEmbed] });

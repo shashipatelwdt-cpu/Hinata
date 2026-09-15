@@ -38,9 +38,9 @@ module.exports = {
 
           if (botMember && botMember.permissions.has(PermissionFlagsBits.MuteMembers) && member.moderatable) {
             try {
-              await newState.setMute(true, 'Hinata HumanMod: Rapid voice channel hopping');
+              await newState.setMute(true, 'RAW HumanMod: Rapid voice channel hopping');
               if (botMember.permissions.has(PermissionFlagsBits.DeafenMembers)) {
-                await newState.setDeaf(true, 'Hinata HumanMod: Rapid voice channel hopping');
+                await newState.setDeaf(true, 'RAW HumanMod: Rapid voice channel hopping');
               }
 
               // Send polite DM in English
@@ -54,7 +54,7 @@ module.exports = {
                   `• **Reason:** Rapid channel disruption\n\n` +
                   `This prevents accidental or intentional disturbance to others. You will be unmuted automatically in 5 minutes!`
                 )
-                .setFooter({ text: 'Hinata Voice Protection' })
+                .setFooter({ text: 'RAW Voice Protection' })
                 .setTimestamp();
 
               await member.send({ embeds: [hopDm] }).catch(() => null);
@@ -64,8 +64,8 @@ module.exports = {
                 try {
                   const currentMem = await guild.members.fetch(userId).catch(() => null);
                   if (currentMem && currentMem.voice?.channel) {
-                    await currentMem.voice.setMute(false, 'Hinata: Voice hopping cooldown expired').catch(() => null);
-                    await currentMem.voice.setDeaf(false, 'Hinata: Voice hopping cooldown expired').catch(() => null);
+                    await currentMem.voice.setMute(false, 'RAW: Voice hopping cooldown expired').catch(() => null);
+                    await currentMem.voice.setDeaf(false, 'RAW: Voice hopping cooldown expired').catch(() => null);
                   }
                 } catch {}
               }, 5 * 60 * 1000);

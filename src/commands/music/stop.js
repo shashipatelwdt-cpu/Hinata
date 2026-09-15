@@ -21,7 +21,7 @@ module.exports = {
     const queue = MusicManager.getQueue(interaction.guild.id);
     if (!queue) {
       return interaction.reply({
-        embeds: [EmbedUtils.error('Nothing Playing', 'Hinata is not currently playing music in this server!')],
+        embeds: [EmbedUtils.error('Nothing Playing', 'RAW is not currently playing music in this server!')],
         ephemeral: true
       });
     }

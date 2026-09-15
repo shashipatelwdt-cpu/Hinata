@@ -24,7 +24,7 @@ module.exports = {
 
     if (!queue && !connection) {
       return interaction.reply({
-        embeds: [EmbedUtils.error('Not Connected', 'Hinata is not currently connected to any voice channel in this server!')],
+        embeds: [EmbedUtils.error('Not Connected', 'RAW is not currently connected to any voice channel in this server!')],
         ephemeral: true
       });
     }

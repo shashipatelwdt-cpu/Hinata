@@ -17,7 +17,7 @@ module.exports = {
 
   async execute(interaction) {
     const embed = new EmbedBuilder()
-      .setTitle('🎧 Hinata Music Control Center')
+      .setTitle('🎧 RAW Music Control Center')
       .setDescription(
         'Welcome to the **Music Controller**!\n\n' +
         '**How to Play Music:**\n' +
@@ -32,7 +32,7 @@ module.exports = {
       .setColor(config.embedColors?.primary || '#5865F2')
       .setImage('https://i.imgur.com/8Q7kYdY.png') // aesthetic visual banner or fallback
       .setFooter({
-        text: 'Hinata Music • Interactive Studio',
+        text: 'RAW Music • Interactive Studio',
         iconURL: interaction.guild.iconURL()
       });
 

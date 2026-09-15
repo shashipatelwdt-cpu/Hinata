@@ -102,12 +102,12 @@ module.exports = {
         return { valid: false, error: 'The `@everyone` role cannot be used as an auto-role.' };
       }
       if (!botMember.permissions.has(PermissionFlagsBits.ManageRoles)) {
-        return { valid: false, error: `Hinata is missing the **Manage Roles** permission in this server.` };
+        return { valid: false, error: `RAW is missing the **Manage Roles** permission in this server.` };
       }
       if (botMember.roles.highest.position <= role.position) {
         return { 
           valid: false, 
-          error: `Role Hierarchy Warning: <@&${role.id}> is positioned **higher than or equal to** Hinata's highest role (<@&${botMember.roles.highest.id}>). Please drag Hinata's role above <@&${role.id}> in **Server Settings > Roles**.` 
+          error: `Role Hierarchy Warning: <@&${role.id}> is positioned **higher than or equal to** RAW's highest role (<@&${botMember.roles.highest.id}>). Please drag RAW's role above <@&${role.id}> in **Server Settings > Roles**.` 
         };
       }
       return { valid: true };
@@ -180,7 +180,7 @@ module.exports = {
         .setDescription(
           `New human members will now automatically receive: <@&${humanRole.id}> (\`${humanRole.name}\`).\n\n` +
           (check.valid 
-            ? '✅ *Hinata has correct permissions and role hierarchy to assign this role.*' 
+            ? '✅ *RAW has correct permissions and role hierarchy to assign this role.*' 
             : `⚠️ **Warning:** ${check.error}`)
         )
         .setTimestamp();
@@ -206,7 +206,7 @@ module.exports = {
         .setDescription(
           `New bot accounts invited will now automatically receive: <@&${botRole.id}> (\`${botRole.name}\`).\n\n` +
           (check.valid 
-            ? '✅ *Hinata has correct permissions and role hierarchy to assign this role.*' 
+            ? '✅ *RAW has correct permissions and role hierarchy to assign this role.*' 
             : `⚠️ **Warning:** ${check.error}`)
         )
         .setTimestamp();
@@ -338,7 +338,7 @@ module.exports = {
           embeds: [
             EmbedUtils.error(
               'Hierarchy / Permission Test Failed ❌',
-              `${check.error}\n\n**How to fix:**\n1. Go to **Server Settings > Roles**\n2. Drag **${botMember.roles.highest.name}** above **${role.name}**\n3. Ensure Hinata has the **Manage Roles** permission.`
+              `${check.error}\n\n**How to fix:**\n1. Go to **Server Settings > Roles**\n2. Drag **${botMember.roles.highest.name}** above **${role.name}**\n3. Ensure RAW has the **Manage Roles** permission.`
             )
           ],
           ephemeral: true
@@ -350,7 +350,7 @@ module.exports = {
 
       try {
         if (!alreadyHas) {
-          await member.roles.add(role, 'Hinata Auto-Role Test');
+          await member.roles.add(role, 'RAW Auto-Role Test');
         }
 
         const embed = new EmbedBuilder()
@@ -360,7 +360,7 @@ module.exports = {
             `**Test Results for ${guild.name}:**\n\n` +
             `• **🎭 Auto-Role:** <@&${role.id}> (\`${role.name}\`)\n` +
             `• **🛡️ Bot Permission (Manage Roles):** ✅ Granted\n` +
-            `• **📊 Role Hierarchy Check:** ✅ Hinata (<@&${botMember.roles.highest.id}>) is higher than target role (<@&${role.id}>)\n` +
+            `• **📊 Role Hierarchy Check:** ✅ RAW (<@&${botMember.roles.highest.id}>) is higher than target role (<@&${role.id}>)\n` +
             `• **⚡ Assignment Test:** ✅ Successfully verified role assignment!\n\n` +
             (alreadyHas ? `*(You already had this role, permission verification succeeded)*` : `*(Role <@&${role.id}> was temporarily added to your profile)*`)
           )

@@ -102,7 +102,7 @@ module.exports = {
           }
         )
         .setThumbnail(targetUser.displayAvatarURL({ dynamic: true, size: 256 }))
-        .setFooter({ text: `Hinata Invite Tracker • Member ID: ${targetUser.id}` })
+        .setFooter({ text: `RAW Invite Tracker • Member ID: ${targetUser.id}` })
         .setTimestamp();
 
       const btnRow = new ActionRowBuilder().addComponents(

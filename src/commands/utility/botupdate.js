@@ -42,7 +42,7 @@ module.exports = {
     if (title || description) {
       const success = await UpdateAnnouncer.sendManualAnnouncement(
         interaction.client,
-        title || 'Hinata System Update',
+        title || 'RAW System Update',
         description || 'New improvements and fixes have been deployed!',
         [],
         targetChannel?.id || null

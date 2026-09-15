@@ -25,14 +25,14 @@ module.exports = {
       const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
       if (botMember && member.moderatable && botMember.roles.highest.position > member.roles.highest.position) {
         // Apply 24-hour temporary quarantine timeout
-        await member.timeout(24 * 60 * 60 * 1000, `Hinata Anti-Raid Shield: Threat score ${threatAssessment.score}%`).catch(() => null);
+        await member.timeout(24 * 60 * 60 * 1000, `RAW Anti-Raid Shield: Threat score ${threatAssessment.score}%`).catch(() => null);
       }
 
       DatabaseManager.addCase(guild.id, {
         userId: member.id,
         userTag: member.user.tag,
         modId: botMember?.id || 'AUTOMOD',
-        modTag: 'Hinata Anti-Raid',
+        modTag: 'RAW Anti-Raid',
         action: 'Quarantine Timeout (24h)',
         reason: `High-Risk Account Flagged (Score: ${threatAssessment.score}%)`,
         detail: `Flags: ${threatAssessment.flags.join(', ')}`
@@ -93,9 +93,9 @@ module.exports = {
             if (!hasManageRoles) {
               console.warn(`[AUTOROLE PERMISSION ERROR] Bot lacks 'Manage Roles' / 'Administrator' permission in guild "${guild.name}" (${guild.id}).`);
             } else if (!canManageRole) {
-              console.warn(`[AUTOROLE HIERARCHY ERROR] Target role "${targetRole.name}" is higher or equal to Hinata's highest role ("${botMember.roles.highest.name}") in "${guild.name}". Please move Hinata's role above "${targetRole.name}" in Server Settings > Roles.`);
+              console.warn(`[AUTOROLE HIERARCHY ERROR] Target role "${targetRole.name}" is higher or equal to RAW's highest role ("${botMember.roles.highest.name}") in "${guild.name}". Please move RAW's role above "${targetRole.name}" in Server Settings > Roles.`);
             } else {
-              await member.roles.add(targetRole, `Hinata Auto-Role: New ${member.user.bot ? 'bot' : 'member'} join`).catch(roleErr => {
+              await member.roles.add(targetRole, `RAW Auto-Role: New ${member.user.bot ? 'bot' : 'member'} join`).catch(roleErr => {
                 console.error(`[AUTOROLE ASSIGN ERROR in ${guild.name}]:`, roleErr.message);
               });
               

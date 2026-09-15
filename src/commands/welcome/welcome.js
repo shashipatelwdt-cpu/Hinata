@@ -172,7 +172,7 @@ module.exports = {
           { name: '📊 Member Position', value: `**#${interaction.guild.memberCount}**`, inline: true },
           { name: '🎨 Selected Theme', value: `\`${initialTemplate.name}\``, inline: true }
         )
-        .setFooter({ text: `Hinata Welcome Catalog • Theme: ${initialTemplate.name}` })
+        .setFooter({ text: `RAW Welcome Catalog • Theme: ${initialTemplate.name}` })
         .setTimestamp();
 
       if (initialTemplate.banner) {
@@ -308,7 +308,7 @@ module.exports = {
         .setDescription(`Your custom welcome banner has been successfully saved and activated.\n\nUse \`/welcome preview\` or \`/welcome test\` to see it in action!`)
         .setColor(config.embedColors?.success || '#57F287')
         .setImage(imageUrl)
-        .setFooter({ text: 'Hinata Welcome System' })
+        .setFooter({ text: 'RAW Welcome System' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [previewEmbed] });

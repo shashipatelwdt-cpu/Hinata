@@ -1,5 +1,5 @@
 /**
- * Pre-Made High Quality Server Rules Templates Catalog for Hinata Discord Bot
+ * Pre-Made High Quality Server Rules Templates Catalog for RAW Discord Bot
  */
 
 const rulesTemplates = [
@@ -12,7 +12,7 @@ const rulesTemplates = [
     title: '🎮 {server} — Official Server Guidelines & Rules',
     color: '#5865F2',
     banner: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Gaming Rules • Zero tolerance for toxicity & cheats',
+    footer: 'RAW Gaming Rules • Zero tolerance for toxicity & cheats',
     rules: [
       {
         number: '01',
@@ -59,7 +59,7 @@ const rulesTemplates = [
     title: '🌸 {server} — Community Guidelines & Etiquette',
     color: '#FF70A6',
     banner: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Anime Rules • Be kind, cozy, and respectful (◕‿◕✿)',
+    footer: 'RAW Anime Rules • Be kind, cozy, and respectful (◕‿◕✿)',
     rules: [
       {
         number: '01',
@@ -106,7 +106,7 @@ const rulesTemplates = [
     title: '🌟 {server} — Server Code of Conduct',
     color: '#FEE75C',
     banner: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Community Rules • Enjoy your stay and have fun!',
+    footer: 'RAW Community Rules • Enjoy your stay and have fun!',
     rules: [
       {
         number: '01',
@@ -153,7 +153,7 @@ const rulesTemplates = [
     title: '💻 {server} — Developer Guidelines & Code of Conduct',
     color: '#00D26A',
     banner: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Developer Rules • git commit -m "Friendly and helpful community"',
+    footer: 'RAW Developer Rules • git commit -m "Friendly and helpful community"',
     rules: [
       {
         number: '01',
@@ -200,7 +200,7 @@ const rulesTemplates = [
     title: '⚡ [SYSTEM DIRECTIVES] {server} Network Clearance Protocols',
     color: '#00F0FF',
     banner: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Cyberpunk Protocols • Authorized Personnel Only // Security Level 4',
+    footer: 'RAW Cyberpunk Protocols • Authorized Personnel Only // Security Level 4',
     rules: [
       {
         number: '01',
@@ -247,7 +247,7 @@ const rulesTemplates = [
     title: '💎 {server} — Community Guidelines',
     color: '#2B2D31',
     banner: null,
-    footer: 'Hinata Minimalist Rules • Simple, elegant, respectful',
+    footer: 'RAW Minimalist Rules • Simple, elegant, respectful',
     rules: [
       {
         number: '01',
@@ -293,7 +293,7 @@ const rulesTemplates = [
     title: '📚 {server} — Academic Integrity & Campus Rules',
     color: '#4E9F3D',
     banner: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Academic Rules • Learn, grow, and achieve your study goals together',
+    footer: 'RAW Academic Rules • Learn, grow, and achieve your study goals together',
     rules: [
       {
         number: '01',
@@ -340,7 +340,7 @@ const rulesTemplates = [
     title: '🏆 {server} — Clan Rules & Competitive Etiquette',
     color: '#E02401',
     banner: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Esports Rules • Play with honor, train hard, win as a team',
+    footer: 'RAW Esports Rules • Play with honor, train hard, win as a team',
     rules: [
       {
         number: '01',
@@ -387,7 +387,7 @@ const rulesTemplates = [
     title: '🎧 {server} — Lounge Guidelines & Vibe Check',
     color: '#8A2BE2',
     banner: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Chill Rules • Good music, great friends, cozy energy',
+    footer: 'RAW Chill Rules • Good music, great friends, cozy energy',
     rules: [
       {
         number: '01',
@@ -434,7 +434,7 @@ const rulesTemplates = [
     title: '🛒 {server} — Marketplace Trading & Commission Rules',
     color: '#FFA500',
     banner: 'https://images.unsplash.com/photo-1556742049-0a67e55722c3?w=1000&auto=format&fit=crop&q=80',
-    footer: 'Hinata Market Rules • Trade safely, verify vouches, and use official middlemen',
+    footer: 'RAW Market Rules • Trade safely, verify vouches, and use official middlemen',
     rules: [
       {
         number: '01',

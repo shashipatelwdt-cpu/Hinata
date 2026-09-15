@@ -1837,7 +1837,7 @@ class DatabaseManager {
       userId: data.userId,
       userTag: data.userTag || 'Unknown User',
       modId: data.modId || 'AUTOMOD',
-      modTag: data.modTag || 'Hinata AutoMod',
+      modTag: data.modTag || 'RAW AutoMod',
       action: data.action || 'Warning',
       reason: data.reason || 'No reason provided',
       detail: data.detail || null,
