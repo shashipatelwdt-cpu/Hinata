@@ -406,9 +406,6 @@ async function connectBot(force = false) {
   }
 }
 
-// Start bot connection
-connectBot();
-
 // 8. Detailed HTTP Health, Diagnostic & Web Monitoring Server
 const PORT = process.env.PORT || 3000;
 const WS_STATE_NAMES = ['READY', 'CONNECTING', 'RECONNECTING', 'IDLE', 'NEARLY', 'DISCONNECTED', 'WAITING_FOR_GUILDS', 'IDENTIFYING', 'RESUMING'];
@@ -510,8 +507,11 @@ http.createServer(async (req, res) => {
   </div>
 </body>
 </html>`);
-}).listen(PORT, () => {
-  console.log(`🌐 Health check server listening on port ${PORT}`);
+}).listen(PORT, '0.0.0.0', () => {
+  console.log(`🌐 Health check server listening on 0.0.0.0:${PORT}`);
+
+  // Start bot gateway connection immediately after port is open
+  connectBot();
 
   // 9. Automated 24/7 Keep-Alive Self-Pinger for Render (keeps free tier container awake)
   const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || process.env.KEEP_ALIVE_URL;
