@@ -13,5 +13,5 @@ jobs:
       - name: Ping Render Web Service
         run: |
           echo "Pinging Render bot service..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://hinata-o5l6.onrender.com)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://hinata-luy3.onrender.com/status)
           echo "Received HTTP Status: $RESPONSE"

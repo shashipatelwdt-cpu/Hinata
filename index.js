@@ -342,6 +342,15 @@ async function connectBot(force = false) {
     console.warn('[PRE-FLIGHT WARNING]', err.message);
   }
 
+  // Handle Cloudflare / Discord 429 Shared IP rate-limits on Render
+  if (lastDiagnostics?.discordGatewayBot?.status === 429 || lastDiagnostics?.discordApiUsersMe?.status === 429) {
+    lastBotError = `Cloudflare/Discord 429 Rate Limit on host IP (${lastDiagnostics.outboundIp}). Switch Render Region in Dashboard (e.g. to Singapore or Oregon) for an instant fresh IP.`;
+    console.warn(`⚠️ [CLOUDFLARE 429]: ${lastBotError}`);
+    isConnecting = false;
+    scheduleReconnect(3 * 60 * 1000); // Back off 3 minutes to avoid extending the ban
+    return;
+  }
+
   console.log('🔑 Logging into Discord Gateway...');
 
   try {
