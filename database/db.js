@@ -33,22 +33,111 @@ let store = {
 };
 
 function applyParsedStore(parsed) {
+  if (!parsed || typeof parsed !== 'object') return;
+
+  // 1. Seamlessly merge guild_settings to prevent losing any local or cloud guild configs
+  const mergedGuildSettings = { ...(store.guild_settings || {}) };
+  for (const [gId, gConfig] of Object.entries(parsed.guild_settings || {})) {
+    mergedGuildSettings[gId] = {
+      ...(mergedGuildSettings[gId] || {}),
+      ...gConfig
+    };
+  }
+
+  // 2. Deep-merge member levels to ensure zero XP or level data loss across redeployments
+  const mergedLevels = { ...(store.levels || {}) };
+  for (const [gId, gLevels] of Object.entries(parsed.levels || {})) {
+    if (!mergedLevels[gId]) {
+      mergedLevels[gId] = { ...gLevels };
+    } else {
+      for (const [uId, uData] of Object.entries(gLevels || {})) {
+        // Keep the higher XP / progress if both exist
+        if (!mergedLevels[gId][uId]) {
+          mergedLevels[gId][uId] = { ...uData };
+        } else {
+          const currentXp = Number(mergedLevels[gId][uId].xp || 0);
+          const incomingXp = Number(uData.xp || 0);
+          if (incomingXp > currentXp) {
+            mergedLevels[gId][uId] = { ...mergedLevels[gId][uId], ...uData };
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Deep-merge honor progression
+  const mergedHonor = { ...(store.honor || {}) };
+  for (const [gId, gHonor] of Object.entries(parsed.honor || {})) {
+    if (!mergedHonor[gId]) {
+      mergedHonor[gId] = { ...gHonor };
+    } else {
+      mergedHonor[gId] = { ...mergedHonor[gId], ...gHonor };
+    }
+  }
+
+  // 4. Merge moderation cases with deduplication
+  const mergedCases = { ...(store.cases || {}) };
+  for (const [gId, gCases] of Object.entries(parsed.cases || {})) {
+    if (!mergedCases[gId] || !Array.isArray(mergedCases[gId])) {
+      mergedCases[gId] = Array.isArray(gCases) ? [...gCases] : [];
+    } else if (Array.isArray(gCases)) {
+      const existingIds = new Set(mergedCases[gId].map(c => c.caseId));
+      for (const c of gCases) {
+        if (!existingIds.has(c.caseId)) {
+          mergedCases[gId].push(c);
+        }
+      }
+    }
+  }
+
+  // 5. Merge strikes
+  const mergedStrikes = { ...(store.strikes || {}) };
+  for (const [gId, gStrikes] of Object.entries(parsed.strikes || {})) {
+    if (!mergedStrikes[gId]) {
+      mergedStrikes[gId] = { ...gStrikes };
+    } else {
+      for (const [uId, uStrikes] of Object.entries(gStrikes || {})) {
+        if (!mergedStrikes[gId][uId]) {
+          mergedStrikes[gId][uId] = Array.isArray(uStrikes) ? [...uStrikes] : [];
+        } else if (Array.isArray(uStrikes)) {
+          const existingStrikeIds = new Set(mergedStrikes[gId][uId].map(s => s.id));
+          for (const s of uStrikes) {
+            if (!existingStrikeIds.has(s.id)) {
+              mergedStrikes[gId][uId].push(s);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 6. Merge warnings
+  let mergedWarnings = Array.isArray(store.warnings) ? [...store.warnings] : [];
+  if (Array.isArray(parsed.warnings)) {
+    const existingWarnIds = new Set(mergedWarnings.map(w => w.id));
+    for (const w of parsed.warnings) {
+      if (!existingWarnIds.has(w.id)) {
+        mergedWarnings.push(w);
+      }
+    }
+  }
+
   store = {
-    guild_settings: parsed.guild_settings || {},
-    warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
-    tickets: parsed.tickets || {},
-    giveaways: parsed.giveaways || {},
-    invites: parsed.invites || {},
-    invite_members: parsed.invite_members || {},
-    bot_meta: parsed.bot_meta || {},
-    playlists: parsed.playlists || {},
-    counting: parsed.counting || {},
-    afk: parsed.afk || {},
-    levels: parsed.levels || {},
-    honor: parsed.honor || store.honor || {},
-    cases: parsed.cases || store.cases || {},
-    strikes: parsed.strikes || store.strikes || {},
-    threat_watchlist: parsed.threat_watchlist || store.threat_watchlist || {}
+    guild_settings: mergedGuildSettings,
+    warnings: mergedWarnings,
+    tickets: parsed.tickets && Object.keys(parsed.tickets).length > 0 ? { ...(store.tickets || {}), ...parsed.tickets } : (store.tickets || {}),
+    giveaways: parsed.giveaways && Object.keys(parsed.giveaways).length > 0 ? { ...(store.giveaways || {}), ...parsed.giveaways } : (store.giveaways || {}),
+    invites: parsed.invites && Object.keys(parsed.invites).length > 0 ? { ...(store.invites || {}), ...parsed.invites } : (store.invites || {}),
+    invite_members: parsed.invite_members && Object.keys(parsed.invite_members).length > 0 ? { ...(store.invite_members || {}), ...parsed.invite_members } : (store.invite_members || {}),
+    bot_meta: { ...(store.bot_meta || {}), ...(parsed.bot_meta || {}) },
+    playlists: parsed.playlists && Object.keys(parsed.playlists).length > 0 ? { ...(store.playlists || {}), ...parsed.playlists } : (store.playlists || {}),
+    counting: { ...(store.counting || {}), ...(parsed.counting || {}) },
+    afk: { ...(store.afk || {}), ...(parsed.afk || {}) },
+    levels: mergedLevels,
+    honor: mergedHonor,
+    cases: mergedCases,
+    strikes: mergedStrikes,
+    threat_watchlist: { ...(store.threat_watchlist || {}), ...(parsed.threat_watchlist || {}) }
   };
 }
 
