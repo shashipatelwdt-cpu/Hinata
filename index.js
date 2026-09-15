@@ -115,25 +115,16 @@ for (const file of eventFiles) {
 console.log(`📡 Loaded ${eventFiles.length} event listeners.`);
 
 // 3. Register Slash Commands automatically when bot logs in
-async function registerCommands(token, clientId, guildId) {
+async function registerCommands(token, clientId) {
   try {
     const rest = new REST({ version: '10' }).setToken(token);
-    console.log(`🔄 Auto-syncing ${slashCommandsData.length} application (/) commands...`);
+    console.log(`🔄 Syncing ${slashCommandsData.length} global slash commands...`);
 
-    // Global deployment (Standard Discord practice)
     await rest.put(
       Routes.applicationCommands(clientId),
       { body: slashCommandsData }
     );
-    console.log(`✅ Deployed ${slashCommandsData.length} global commands.`);
-
-    // Clear any legacy guild-specific commands to prevent 2x duplicate command listings in Discord
-    for (const g of client.guilds.cache.values()) {
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, g.id),
-        { body: [] }
-      ).catch(() => null);
-    }
+    console.log(`✅ Successfully deployed ${slashCommandsData.length} global slash commands.`);
   } catch (error) {
     console.error('[COMMAND SYNC ERROR]', error.message || error);
   }
@@ -211,7 +202,11 @@ client.on('shardError', (err, shardId) => {
 
 client.on('shardDisconnect', (event, shardId) => {
   console.warn(`[SHARD ${shardId} DISCONNECT] Code: ${event.code}, reason: ${event.reason || 'None'}`);
-  scheduleReconnect(10000);
+  if (event.code === 4004) {
+    console.error('❌ [FATAL] Discord Token was rejected by Gateway (Code 4004).');
+  } else if (!client.ws?.reconnecting) {
+    scheduleReconnect(15000);
+  }
 });
 
 client.on('shardReconnecting', (shardId) => {
@@ -319,32 +314,6 @@ function scheduleReconnect(delayMs = 15000) {
   }, delayMs);
 }
 
-// 3. Register Slash Commands automatically when bot logs in
-async function registerCommands(token, clientId, guildId) {
-  try {
-    const rest = new REST({ version: '10' }).setToken(token);
-    console.log(`🔄 Auto-syncing ${slashCommandsData.length} application (/) commands...`);
-
-    // Global deployment
-    await rest.put(
-      Routes.applicationCommands(clientId),
-      { body: slashCommandsData }
-    );
-    console.log(`✅ Deployed ${slashCommandsData.length} global commands.`);
-
-    // Also sync directly to all connected guilds for 0-delay instant updates on client
-    for (const g of client.guilds.cache.values()) {
-      await rest.put(
-        Routes.applicationGuildCommands(clientId, g.id),
-        { body: slashCommandsData }
-      ).catch(() => null);
-    }
-    console.log(`⚡ Instant-synced slash commands to ${client.guilds.cache.size} guilds.`);
-  } catch (error) {
-    console.error('[COMMAND SYNC ERROR]', error.message || error);
-  }
-}
-
 async function connectBot(force = false) {
   if (isConnecting) return;
   if (!force && client.isReady()) {
@@ -373,22 +342,16 @@ async function connectBot(force = false) {
     console.warn('[PRE-FLIGHT WARNING]', err.message);
   }
 
-  console.log('🔑 Logging into Discord Gateway (with 30s timeout safeguard)...');
-
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new Error('Gateway connection timed out after 30 seconds (Network dropped or rate-limited)'));
-    }, 30000);
-  });
+  console.log('🔑 Logging into Discord Gateway...');
 
   try {
-    await Promise.race([client.login(token), timeoutPromise]);
+    await client.login(token);
     console.log(`✅ Successfully logged in as ${client.user?.tag || 'RAW'}!`);
     lastBotError = null;
     isConnecting = false;
 
     if (clientId && clientId !== 'your_client_id_here') {
-      registerCommands(token, clientId, guildId).catch(err => {
+      registerCommands(token, clientId).catch(err => {
         console.error('[COMMAND SYNC ERROR]:', err.message);
       });
     }
@@ -396,12 +359,6 @@ async function connectBot(force = false) {
     isConnecting = false;
     lastBotError = err.message || String(err);
     console.error('[LOGIN FAILURE]', err.message);
-
-    // Clean up client state and schedule retry
-    try {
-      await client.destroy().catch(() => null);
-    } catch {}
-
     scheduleReconnect(15000);
   }
 }

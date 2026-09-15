@@ -137,7 +137,7 @@
           "boosts": "1539876769690296320",
           "goal": "1539876772995137560"
         },
-        "lastUpdated": 1789398850716
+        "lastUpdated": 1789454429034
       }
     },
     "1484076210412851324": {
@@ -407,7 +407,10 @@
           "blowjob"
         ],
         "whitelistedRoles": [],
-        "whitelistedChannels": []
+        "whitelistedChannels": [],
+        "antiScam": true,
+        "scamAction": "timeout",
+        "scamTimeoutDuration": "1"
       },
       "ticket": {
         "categoryId": null,
@@ -431,7 +434,7 @@
           "boosts": "1548243400514605076",
           "goal": "1548243401856524288"
         },
-        "lastUpdated": 1789398850716
+        "lastUpdated": 1789454428502
       },
       "channel_muted_bots": {
         "1541869960140300338": [
@@ -444,6 +447,18 @@
             "mutedAt": "2026-08-29T07:41:43.473Z"
           }
         ]
+      },
+      "honor_config": {
+        "enabled": true,
+        "channelId": null,
+        "roles": {
+          "2": null,
+          "3": null,
+          "4": null,
+          "5": null
+        },
+        "stackRoles": true,
+        "dailyTokens": 3
       }
     },
     "1436258906589368322": {
@@ -516,7 +531,7 @@
           "boosts": "1540992992477843548",
           "goal": "1540992995094958142"
         },
-        "lastUpdated": 1789398850000
+        "lastUpdated": 1789454997032
       }
     },
     "1505578149432524821": {
@@ -622,7 +637,7 @@
           "boosts": "1539881230990966834",
           "goal": "1539881233247371295"
         },
-        "lastUpdated": 1789398851560
+        "lastUpdated": 1789454430152
       }
     },
     "1540002515720863864": {
@@ -692,7 +707,7 @@
           "boosts": "1540005264495869973",
           "goal": "1540005267624955925"
         },
-        "lastUpdated": 1789398851560
+        "lastUpdated": 1789454430248
       }
     },
     "1489107089241673862": {
@@ -785,7 +800,7 @@
           "boosts": "1540782800465297580",
           "goal": "1540782802759450727"
         },
-        "lastUpdated": 1789398850716
+        "lastUpdated": 1789454428534
       }
     },
     "1540958511112917084": {
@@ -1263,7 +1278,7 @@
           "boosts": "1540992042899865650",
           "goal": "1540992044762398751"
         },
-        "lastUpdated": 1789398852060
+        "lastUpdated": 1789454430931
       },
       "channel_muted_bots": {
         "1540991938453446686": [
@@ -1483,7 +1498,7 @@
         "bonus": 0
       },
       "1541472225021010071": {
-        "regular": 1,
+        "regular": 2,
         "leaves": 0,
         "fake": 0,
         "bonus": 0
@@ -1613,6 +1628,12 @@
         "bonus": 0
       },
       "1447797534692212776": {
+        "regular": 0,
+        "leaves": 0,
+        "fake": 0,
+        "bonus": 0
+      },
+      "1026103446367129620": {
         "regular": 0,
         "leaves": 0,
         "fake": 0,
@@ -1827,26 +1848,26 @@
   "counting": {
     "1484076210412851324": {
       "channelId": "1542027308435640421",
-      "currentCount": 2,
+      "currentCount": 9,
       "lastUserId": "1429361029179113517",
       "highScore": 13,
       "highScoreDate": "2026-09-12T17:10:45.436Z",
-      "totalCounts": 33,
+      "totalCounts": 47,
       "userStats": {
         "1429361029179113517": {
-          "counts": 5,
-          "fails": 0,
-          "lastCountAt": "2026-09-14T14:23:47.695Z"
+          "counts": 10,
+          "fails": 1,
+          "lastCountAt": "2026-09-15T05:56:00.858Z"
         },
         "1541472225021010071": {
-          "counts": 7,
+          "counts": 12,
           "fails": 2,
-          "lastCountAt": "2026-09-13T17:14:02.938Z"
+          "lastCountAt": "2026-09-15T05:16:51.362Z"
         },
         "1034525097567985784": {
-          "counts": 12,
+          "counts": 16,
           "fails": 0,
-          "lastCountAt": "2026-09-13T16:43:58.918Z"
+          "lastCountAt": "2026-09-14T17:19:32.651Z"
         },
         "1517209648627716229": {
           "counts": 1,
@@ -2228,7 +2249,24 @@
       }
     }
   },
-  "honor": {},
+  "honor": {
+    "1484076210412851324": {
+      "1429361029179113517": {
+        "points": 0,
+        "level": 1,
+        "categories": {
+          "friendly": 0,
+          "shotcaller": 0,
+          "helpful": 0,
+          "mvp": 0
+        },
+        "tokensRemaining": 3,
+        "tokenResetAt": 1789486680192,
+        "lastGivenTo": {},
+        "history": []
+      }
+    }
+  },
   "cases": {},
   "strikes": {},
   "threat_watchlist": {}
