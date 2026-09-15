@@ -104,6 +104,18 @@ module.exports = {
         .setName('modlog')
         .setDescription('📜 Set the channel where moderation and automod logs will be sent')
         .addChannelOption(opt => opt.setName('channel').setDescription('The channel for audit logs').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('human-mod')
+        .setDescription('🧠 Configure Human-Like AI Moderator, Strike Decay & Anti-Raid Thresholds')
+        .addBooleanOption(opt => opt.setName('enabled').setDescription('Enable or disable Human-Like Progressive Discipline').setRequired(false))
+        .addIntegerOption(opt => opt.setName('strike_decay_days').setDescription('Days of good behavior before strikes decay (default: 7)').setMinValue(1).setMaxValue(30).setRequired(false))
+        .addBooleanOption(opt => opt.setName('heat_monitor').setDescription('Enable dynamic chat velocity monitor & auto-slowmode').setRequired(false))
+        .addIntegerOption(opt => opt.setName('heat_threshold').setDescription('Message velocity trigger (default: 8 msgs in 10s)').setMinValue(4).setMaxValue(25).setRequired(false))
+        .addBooleanOption(opt => opt.setName('anti_voice_hop').setDescription('Auto-mute members rapidly hopping voice channels').setRequired(false))
+        .addIntegerOption(opt => opt.setName('anti_raid_threshold').setDescription('Threat score % to quarantine new accounts (default: 75%)').setMinValue(30).setMaxValue(100).setRequired(false))
+        .addChannelOption(opt => opt.setName('appeal_channel').setDescription('Specific channel to send member appeals (default: ModLogs)').setRequired(false))
     ),
 
   async execute(interaction) {
@@ -117,12 +129,15 @@ module.exports = {
       const totalWords = customCount > 0 ? customCount : BadWordsEngine.getTotalCount();
       const wordSource = customCount > 0 ? `Custom List (${customCount} words)` : `Master Preset (${totalWords} words)`;
 
+      const humanMod = DatabaseManager.getHumanModConfig(interaction.guild.id);
+
       const embed = new EmbedBuilder()
         .setColor(config.embedColors.primary || '#5865F2')
         .setTitle('🛡️ AutoMod Protection Status')
         .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
         .setDescription('Real-time automated defense & server protection settings:')
         .addFields(
+          { name: '🧠 Human-Like AI Moderator', value: humanMod.enabled !== false ? `✅ Enabled (Decay: \`${humanMod.strikeDecayDays || 7}d\` • Heat: \`${humanMod.heatThreshold || 8} msgs\` • Raid: \`${humanMod.antiRaidThreshold || 75}%\`)` : '❌ Disabled', inline: false },
           { name: '🛡️ Anti-Scam & Image OCR Shield', value: automod.antiScam !== false ? `✅ Enabled (Action: \`${(automod.scamAction || 'timeout').toUpperCase()}\` • \`${automod.scamTimeoutDuration || '1h'}\`)` : '❌ Disabled', inline: false },
           { name: '🤬 Anti-Profanity / Bad Words', value: automod.antiProfanity !== false ? `✅ Enabled (${wordSource})` : '❌ Disabled', inline: false },
           { name: '🚫 Anti-Discord-Invite', value: automod.antiInvite ? '✅ Enabled' : '❌ Disabled', inline: true },
@@ -440,6 +455,51 @@ module.exports = {
           embeds: [EmbedUtils.success('Word Removed', `Removed \`${word}\` from the blocked words list.`)]
         });
       }
+    }
+
+    // 10. HUMAN-MOD CONFIGURATION
+    if (subcommand === 'human-mod') {
+      const updates = {};
+
+      const enabled = interaction.options.getBoolean('enabled');
+      if (enabled !== null) updates.enabled = enabled;
+
+      const strikeDecayDays = interaction.options.getInteger('strike_decay_days');
+      if (strikeDecayDays !== null) updates.strikeDecayDays = strikeDecayDays;
+
+      const heatMonitor = interaction.options.getBoolean('heat_monitor');
+      if (heatMonitor !== null) updates.heatMonitorEnabled = heatMonitor;
+
+      const heatThreshold = interaction.options.getInteger('heat_threshold');
+      if (heatThreshold !== null) updates.heatThreshold = heatThreshold;
+
+      const antiVoiceHop = interaction.options.getBoolean('anti_voice_hop');
+      if (antiVoiceHop !== null) updates.antiVoiceHopEnabled = antiVoiceHop;
+
+      const antiRaidThreshold = interaction.options.getInteger('anti_raid_threshold');
+      if (antiRaidThreshold !== null) updates.antiRaidThreshold = antiRaidThreshold;
+
+      const appealChannel = interaction.options.getChannel('appeal_channel');
+      if (appealChannel) updates.appealChannelId = appealChannel.id;
+
+      const newConfig = DatabaseManager.setHumanModConfig(interaction.guild.id, updates);
+
+      const embed = new EmbedBuilder()
+        .setColor(config.embedColors?.primary || '#5865F2')
+        .setTitle('🧠 Human-Like AI Moderator Configuration Updated')
+        .setDescription('Progressive discipline, chat heat defense, and anti-raid sentry settings have been saved.')
+        .addFields(
+          { name: '⚖️ Progressive Discipline Engine', value: newConfig.enabled !== false ? '✅ Enabled (Stage 1 to 5 Ladder)' : '❌ Disabled', inline: true },
+          { name: '⏳ Strike Decay Period', value: `\`${newConfig.strikeDecayDays || 7} Days\` (Forgiveness for good standing)`, inline: true },
+          { name: '💬 Chat Heat Monitor', value: newConfig.heatMonitorEnabled !== false ? `✅ Enabled (Trigger: \`${newConfig.heatThreshold || 8} msgs / 10s\`)` : '❌ Disabled', inline: true },
+          { name: '🎙️ Anti-Voice Channel Hopping', value: newConfig.antiVoiceHopEnabled !== false ? '✅ Enabled (5-Min Mute on 4+ hops)' : '❌ Disabled', inline: true },
+          { name: '🛡️ Anti-Raid Threat Quarantine', value: `\`${newConfig.antiRaidThreshold || 75}%\` Threat Score`, inline: true },
+          { name: '📩 Appeals Channel', value: newConfig.appealChannelId ? `<#${newConfig.appealChannelId}>` : 'Default (ModLogs channel)', inline: true }
+        )
+        .setFooter({ text: 'All notices, DMs, and case audits are formatted in clean English.' })
+        .setTimestamp();
+
+      return interaction.reply({ embeds: [embed] });
     }
   }
 };

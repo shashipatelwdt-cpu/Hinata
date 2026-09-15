@@ -3,6 +3,7 @@ const { DatabaseManager } = require('../../database/db');
 const ModLogger = require('../utils/logger');
 const ServerStats = require('../utils/serverStats');
 const InviteTracker = require('../utils/inviteTracker');
+const ThreatScorer = require('../utils/threatScorer');
 const config = require('../../config.json');
 
 module.exports = {
@@ -12,6 +13,44 @@ module.exports = {
 
     // 0. Update Live Server Stats Counters
     ServerStats.updateGuildStats(guild).catch(() => null);
+
+    // 0b. Threat Risk & Anti-Raid Assessment
+    const threatAssessment = ThreatScorer.assessMember(member);
+    DatabaseManager.setThreatWatch(guild.id, member.id, threatAssessment);
+
+    const humanModConfig = DatabaseManager.getHumanModConfig(guild.id);
+    const raidThreshold = humanModConfig.antiRaidThreshold || 75;
+
+    if (threatAssessment.score >= raidThreshold && !member.user.bot) {
+      const botMember = guild.members.me || await guild.members.fetchMe().catch(() => null);
+      if (botMember && member.moderatable && botMember.roles.highest.position > member.roles.highest.position) {
+        // Apply 24-hour temporary quarantine timeout
+        await member.timeout(24 * 60 * 60 * 1000, `Hinata Anti-Raid Shield: Threat score ${threatAssessment.score}%`).catch(() => null);
+      }
+
+      DatabaseManager.addCase(guild.id, {
+        userId: member.id,
+        userTag: member.user.tag,
+        modId: botMember?.id || 'AUTOMOD',
+        modTag: 'Hinata Anti-Raid',
+        action: 'Quarantine Timeout (24h)',
+        reason: `High-Risk Account Flagged (Score: ${threatAssessment.score}%)`,
+        detail: `Flags: ${threatAssessment.flags.join(', ')}`
+      });
+
+      await ModLogger.log(guild, {
+        action: '🛡️ Anti-Raid: High-Risk Account Quarantined',
+        target: member.user,
+        color: config.embedColors?.danger || '#ED4245',
+        reason: `Threat Score: ${threatAssessment.score}% (${threatAssessment.riskLevel})`,
+        fields: [
+          { name: '⏳ Account Age', value: threatAssessment.accountAgeHuman, inline: true },
+          { name: '🛡️ Threat Score', value: `${threatAssessment.score}% (\`${threatAssessment.riskLevel}\`)`, inline: true },
+          { name: '🚩 Risk Flags', value: threatAssessment.flags.map(f => `• ${f}`).join('\n') || 'None', inline: false },
+          { name: '🔒 Action Applied', value: '24-hour temporary quarantine timeout applied automatically.', inline: false }
+        ]
+      }).catch(() => null);
+    }
 
     // 1. Process Invite Tracker with timeout protection
     let inviteInfo = null;

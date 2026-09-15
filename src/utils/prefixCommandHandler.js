@@ -1552,6 +1552,151 @@ class PrefixCommandHandler {
       }
 
       // ==========================================
+      // MODERATION CASES & STRIKES COMMANDS
+      // ==========================================
+      case 'case': {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+          return message.reply({ embeds: [EmbedUtils.error('Permission Denied', 'You need the **Moderate Members** permission to view moderation cases.')] });
+        }
+        if (!args[0]) {
+          return message.reply({ embeds: [EmbedUtils.warning('Usage', 'Please specify a Case ID: `h case <id>` (e.g. `h case 1001` or `h case CASE-1001`)')] });
+        }
+        const modCase = DatabaseManager.getCase(message.guild.id, args[0]);
+        if (!modCase) {
+          return message.reply({ embeds: [EmbedUtils.error('Not Found', `No case found matching \`${args[0]}\` in this server.`)] });
+        }
+        const statusEmoji = modCase.status === 'pardoned' ? '🕊️ Pardoned' : '⚡ Active Infraction';
+        const caseEmbed = new EmbedBuilder()
+          .setColor(modCase.status === 'pardoned' ? '#57F287' : '#ED4245')
+          .setTitle(`📋 Case File: ${modCase.caseId}`)
+          .addFields(
+            { name: '👤 Target Member', value: `<@${modCase.userId}> (\`${modCase.userTag}\`)`, inline: true },
+            { name: '🛡️ Enforcing Staff', value: modCase.modId === 'AUTOMOD' ? '🤖 Hinata HumanMod' : `<@${modCase.modId}> (\`${modCase.modTag}\`)`, inline: true },
+            { name: '⚖️ Action Taken', value: `\`${modCase.action}\`${modCase.duration ? ` (${modCase.duration})` : ''}`, inline: true },
+            { name: '📌 Status', value: statusEmoji, inline: true },
+            { name: '📅 Date', value: `<t:${Math.floor(new Date(modCase.timestamp).getTime() / 1000)}:R>`, inline: true },
+            { name: '⚡ Strike', value: modCase.strikeNumber ? `Strike #${modCase.strikeNumber}` : 'None', inline: true },
+            { name: '📋 Primary Reason', value: modCase.reason || 'No reason provided', inline: false }
+          );
+        if (modCase.detail) {
+          caseEmbed.addFields({ name: '📝 Incident Detail', value: `\`\`\`${modCase.detail.slice(0, 500)}\`\`\``, inline: false });
+        }
+        if (modCase.status === 'pardoned') {
+          caseEmbed.addFields({ name: '🕊️ Pardon Reason', value: `Pardoned by **${modCase.pardonedBy}**: ${modCase.pardonReason || 'Discretionary pardon'}` });
+        }
+        caseEmbed.setFooter({ text: 'Hinata Disciplinary Records' });
+        await message.reply({ embeds: [caseEmbed] });
+        return true;
+      }
+
+      case 'cases':
+      case 'modhistory': {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+          return message.reply({ embeds: [EmbedUtils.error('Permission Denied', 'You need the **Moderate Members** permission to view moderation history.')] });
+        }
+        const target = message.mentions.users.first() || (args[0] ? await message.client.users.fetch(args[0]).catch(() => null) : message.author);
+        if (!target) {
+          return message.reply({ embeds: [EmbedUtils.error('User Not Found', 'Could not locate that member. Usage: `h cases @user`')] });
+        }
+        const userCases = DatabaseManager.getCases(message.guild.id, target.id, 10);
+        const activeStrikes = DatabaseManager.getActiveStrikes(message.guild.id, target.id);
+        const threatWatch = DatabaseManager.getThreatWatch(message.guild.id, target.id);
+
+        const histEmbed = new EmbedBuilder()
+          .setColor(config.embedColors?.primary || '#5865F2')
+          .setTitle(`📜 Disciplinary History: ${target.tag}`)
+          .setThumbnail(target.displayAvatarURL({ dynamic: true, size: 256 }))
+          .setDescription(
+            `**User ID:** \`${target.id}\` • **Active Strikes:** **${activeStrikes.length}** • **Total Cases:** **${userCases.length}**` +
+            (threatWatch ? `\n🛡️ **Threat Score:** \`${threatWatch.riskLevel || 'LOW'}\` (${threatWatch.score || 0}%)` : '')
+          );
+
+        if (userCases.length === 0) {
+          histEmbed.addFields({ name: '🌟 Clean Record', value: 'This member has no recorded moderation cases on this server.' });
+        } else {
+          const lines = userCases.map(c => {
+            const time = `<t:${Math.floor(new Date(c.timestamp).getTime() / 1000)}:R>`;
+            const statusIcon = c.status === 'pardoned' ? '🕊️ [Pardoned]' : '⚡';
+            return `**${statusIcon} ${c.caseId}** (${c.action}) — *${c.reason}* (${time})`;
+          }).join('\n');
+          histEmbed.addFields({ name: '📋 Recent Cases (Last 10)', value: lines });
+        }
+        histEmbed.setFooter({ text: 'Hinata Disciplinary Records' }).setTimestamp();
+        await message.reply({ embeds: [histEmbed] });
+        return true;
+      }
+
+      case 'strikes': {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+          return message.reply({ embeds: [EmbedUtils.error('Permission Denied', 'You need the **Moderate Members** permission to view member strikes.')] });
+        }
+        const target = message.mentions.users.first() || (args[0] ? await message.client.users.fetch(args[0]).catch(() => null) : message.author);
+        if (!target) {
+          return message.reply({ embeds: [EmbedUtils.error('User Not Found', 'Usage: `h strikes @user`')] });
+        }
+        const strikes = DatabaseManager.getActiveStrikes(message.guild.id, target.id);
+        const strikeEmbed = new EmbedBuilder()
+          .setColor(strikes.length > 0 ? '#ED4245' : '#57F287')
+          .setTitle(`⚡ Active Strikes: ${target.tag}`)
+          .setThumbnail(target.displayAvatarURL({ dynamic: true, size: 256 }))
+          .setDescription(
+            `**Active Strikes:** **${strikes.length}**\n` +
+            `*Strikes decay automatically after 7 days of good behavior.*`
+          );
+        if (strikes.length === 0) {
+          strikeEmbed.addFields({ name: '✨ Standing', value: 'Member currently has 0 active strikes and is in full good standing.' });
+        } else {
+          const lines = strikes.map((s, idx) => {
+            const exp = `<t:${Math.floor(s.expiresAt / 1000)}:R>`;
+            return `**Strike #${idx + 1}:** *${s.reason}* • Decays ${exp}`;
+          }).join('\n');
+          strikeEmbed.addFields({ name: '⏳ Expiration Timers', value: lines });
+        }
+        await message.reply({ embeds: [strikeEmbed] });
+        return true;
+      }
+
+      case 'pardon': {
+        if (!message.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
+          return message.reply({ embeds: [EmbedUtils.error('Permission Denied', 'You need the **Moderate Members** permission to pardon cases.')] });
+        }
+        if (!args[0]) {
+          return message.reply({ embeds: [EmbedUtils.warning('Usage', 'Usage: `h pardon <caseId> [reason]` (e.g. `h pardon CASE-1001 false positive`)')] });
+        }
+        const caseIdInput = args.shift();
+        const reason = args.join(' ').trim() || 'Staff discretionary pardon';
+        const modCase = DatabaseManager.getCase(message.guild.id, caseIdInput);
+        if (!modCase) {
+          return message.reply({ embeds: [EmbedUtils.error('Not Found', `No case found matching \`${caseIdInput}\`.`)] });
+        }
+        if (modCase.status === 'pardoned') {
+          return message.reply({ embeds: [EmbedUtils.warning('Already Pardoned', `Case \`${modCase.caseId}\` was already pardoned.`)] });
+        }
+        DatabaseManager.pardonCase(message.guild.id, caseIdInput, message.author.id, message.author.tag, reason);
+        try {
+          const targetMem = await message.guild.members.fetch(modCase.userId).catch(() => null);
+          if (targetMem && targetMem.isCommunicationDisabled()) {
+            await targetMem.timeout(null, `Pardoned by ${message.author.tag}`);
+          }
+        } catch {}
+        await ModLogger.log(message.guild, {
+          action: 'Case Pardoned',
+          target: { id: modCase.userId, tag: modCase.userTag },
+          moderator: message.author,
+          reason: reason,
+          color: config.embedColors?.success || '#57F287',
+          fields: [
+            { name: '🆔 Case File', value: `\`${modCase.caseId}\``, inline: true },
+            { name: '⚖️ Action', value: modCase.action, inline: true }
+          ]
+        }).catch(() => null);
+        await message.reply({
+          embeds: [EmbedUtils.success('Case Pardoned', `Successfully pardoned **\`${modCase.caseId}\`** for <@${modCase.userId}>.\n**Reason:** ${reason}`)]
+        });
+        return true;
+      }
+
+      // ==========================================
       // HELP COMMAND
       // ==========================================
       case 'help':

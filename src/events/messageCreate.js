@@ -5,6 +5,10 @@ const ModLogger = require('../utils/logger');
 const EmbedUtils = require('../utils/embeds');
 const PrefixCommandHandler = require('../utils/prefixCommandHandler');
 const ScamDetector = require('../utils/scamDetector');
+const TextNormalizer = require('../utils/textNormalizer');
+const HumanMod = require('../utils/humanMod');
+const ChatHeatMonitor = require('../utils/chatHeatMonitor');
+const CrisisSentry = require('../utils/crisisSentry');
 const TimeUtils = require('../utils/time');
 const config = require('../../config.json');
 
@@ -58,6 +62,27 @@ module.exports = {
     // 0. Handle Prefix Commands (e.g. h play <song>, h skip, h stop, etc.)
     const isCommandHandled = await PrefixCommandHandler.handleMessage(message, client || message.client);
     if (isCommandHandled) return;
+
+    // Live Chat Heat & Flame-War Monitoring (Sliding window rate limit & auto-slowmode)
+    ChatHeatMonitor.recordAndAssess(message, DatabaseManager.getHumanModConfig(message.guild.id)).catch(() => null);
+
+    // Compassionate Crisis & Mental Health Sentry (Confidential, zero punishment)
+    if (!message.author.bot && CrisisSentry.isCrisisSignal(message.content)) {
+      if (!CrisisSentry.isOnCooldown(message.author.id)) {
+        CrisisSentry.markSent(message.author.id);
+        const compassionEmbed = CrisisSentry.buildCompassionEmbed(message.author, message.guild);
+        await message.author.send({ embeds: [compassionEmbed] }).catch(() => null);
+
+        const modlogChannelId = DatabaseManager.getGuild(message.guild.id)?.modlog_channel;
+        if (modlogChannelId) {
+          const logChan = message.guild.channels.cache.get(modlogChannelId) || await message.guild.channels.fetch(modlogChannelId).catch(() => null);
+          if (logChan && logChan.isTextBased()) {
+            const alertEmbed = CrisisSentry.buildStaffWelfareAlert(message.author, message.channel, message.content);
+            await logChan.send({ embeds: [alertEmbed] }).catch(() => null);
+          }
+        }
+      }
+    }
 
     const member = message.member;
     if (!member) return;
@@ -429,16 +454,20 @@ module.exports = {
       }
     }
 
-    // 5. Anti-Profanity / Bad Words
+    // 5. Anti-Profanity / Bad Words (With Human-Level Anti-Bypass De-Obfuscation)
     if (!violation && automod.antiProfanity !== false) {
       const customList = Array.isArray(automod.customBadWords) && automod.customBadWords.length > 0
         ? automod.customBadWords
         : BadWordsEngine.getDefaultBadWords();
 
-      const check = BadWordsEngine.checkMessage(message.content, customList);
-      if (check.isProfane) {
-        violation = 'Profanity Filter Violation';
-        violationDetail = `Message contained prohibited abusive content: \`${check.matchedWord}\``;
+      const variations = TextNormalizer.getVariations(message.content);
+      for (const textVariant of variations) {
+        const check = BadWordsEngine.checkMessage(textVariant, customList);
+        if (check.isProfane) {
+          violation = 'Profanity Filter Violation';
+          violationDetail = `Message contained prohibited abusive content: \`${check.matchedWord}\``;
+          break;
+        }
       }
     }
 
@@ -553,25 +582,11 @@ module.exports = {
         });
 
       } else {
-        // Standard AutoMod Action (Invites, Links, Mass Mentions, Profanity, Spam)
-        const warnMsg = await message.channel.send({
-          content: `⚠️ ${message.author}, your message was deleted by **AutoMod**: *${violationDetail}*`
-        }).catch(() => null);
-
-        if (warnMsg) {
-          setTimeout(() => warnMsg.delete().catch(() => null), 6000);
-        }
-
-        // Log to ModLogs
-        await ModLogger.log(message.guild, {
-          action: `AutoMod: ${violation}`,
-          target: message.author,
-          reason: violationDetail,
-          color: config.embedColors.danger,
-          fields: [
-            { name: '💬 Channel', value: `<#${message.channel.id}>`, inline: true },
-            { name: '📝 Message Content', value: `\`\`\`${(message.content || '[No Text]').slice(0, 1000)}\`\`\``, inline: false }
-          ]
+        // Human-Like Progressive Discipline Ladder (Stage 1 Verbal Reminder -> Stage 2 Cool-off -> Stage 3 Strike -> Stage 4 Final -> Stage 5 Kick/Ban)
+        await HumanMod.processInfraction(message, {
+          rule: violation,
+          detail: violationDetail,
+          evidence: message.content
         });
       }
     }

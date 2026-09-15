@@ -84,6 +84,118 @@ module.exports = {
 
     // 3. MODAL SUBMISSIONS
     if (interaction.isModalSubmit()) {
+      // Disciplinary Appeal Modal Submission
+      if (interaction.customId.startsWith('mod_appeal_modal')) {
+        const parts = interaction.customId.split(':');
+        let targetGuildId = parts[1];
+        let targetCaseId = parts[2];
+
+        if (!targetCaseId && parts[1]) {
+          targetCaseId = parts[1];
+          const found = DatabaseManager.findCaseGlobally(targetCaseId);
+          if (found) targetGuildId = found.guildId;
+        }
+
+        const appealReason = interaction.fields.getTextInputValue('appeal_reason');
+        const appealExtra = interaction.fields.getTextInputValue('appeal_extra') || 'None';
+
+        let modCase = targetGuildId ? DatabaseManager.getCase(targetGuildId, targetCaseId) : null;
+        if (!modCase) {
+          const found = DatabaseManager.findCaseGlobally(targetCaseId);
+          if (found) {
+            targetGuildId = found.guildId;
+            modCase = found.modCase;
+          }
+        }
+
+        if (!modCase) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Case Not Found', `Could not find disciplinary record \`${targetCaseId}\`.`)],
+            ephemeral: true
+          });
+        }
+
+        if (modCase.status === 'pardoned') {
+          return interaction.reply({
+            embeds: [EmbedUtils.info('Already Pardoned', `Case \`${modCase.caseId}\` has already been pardoned by server staff.`)],
+            ephemeral: true
+          });
+        }
+
+        // Save appeal state in database
+        DatabaseManager.updateCase(targetGuildId, modCase.caseId, {
+          appeal: {
+            status: 'pending',
+            reason: appealReason,
+            extra: appealExtra,
+            submittedAt: new Date().toISOString(),
+            userId: interaction.user.id,
+            userTag: interaction.user.tag
+          }
+        });
+
+        // Acknowledge to appellant
+        await interaction.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(config.embedColors?.success || '#57F287')
+              .setTitle('✅ Disciplinary Appeal Received')
+              .setDescription(
+                `Your appeal for **${modCase.caseId}** has been recorded and submitted directly to the moderation team.\n\n` +
+                `**Your Statement:**\n> "${appealReason.replace(/\n/g, '\n> ')}"\n\n` +
+                `Staff will review your case fairly. You will receive an automated direct message update when a decision is made.`
+              )
+              .setFooter({ text: 'Hinata Disciplinary Appeal System' })
+              .setTimestamp()
+          ],
+          ephemeral: true
+        });
+
+        // Send Review Card to ModLogs / Appeal Channel in the Target Guild
+        const targetGuild = interaction.client.guilds.cache.get(targetGuildId) || await interaction.client.guilds.fetch(targetGuildId).catch(() => null);
+        if (targetGuild) {
+          const humanModConfig = DatabaseManager.getHumanModConfig(targetGuildId);
+          const channelId = humanModConfig.appealChannelId || DatabaseManager.getGuild(targetGuildId)?.modlog_channel;
+          if (channelId) {
+            const channel = targetGuild.channels.cache.get(channelId) || await targetGuild.channels.fetch(channelId).catch(() => null);
+            if (channel && channel.isTextBased()) {
+              const reviewEmbed = new EmbedBuilder()
+                .setColor(config.embedColors?.warning || '#FEE75C')
+                .setTitle(`⚖️ Disciplinary Appeal Submitted • ${modCase.caseId}`)
+                .setDescription(
+                  `Member <@${interaction.user.id}> (\`${interaction.user.tag}\`) has submitted an appeal for review.`
+                )
+                .addFields(
+                  { name: '👤 Member', value: `<@${interaction.user.id}> (\`${interaction.user.tag}\`)`, inline: true },
+                  { name: '🆔 Case File', value: `\`${modCase.caseId}\``, inline: true },
+                  { name: '⚡ Action Taken', value: `\`${modCase.action}\``, inline: true },
+                  { name: '📋 Original Reason', value: modCase.reason || 'None', inline: false },
+                  { name: '📝 Appellant\'s Explanation', value: `\`\`\`${appealReason.slice(0, 1000)}\`\`\``, inline: false },
+                  ...(appealExtra && appealExtra !== 'None' ? [{ name: '📎 Additional Notes', value: appealExtra.slice(0, 500), inline: false }] : [])
+                )
+                .setFooter({ text: 'Review and decide this appeal below' })
+                .setTimestamp();
+
+              const actionRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setCustomId(`mod_appeal_approve:${targetGuildId}:${modCase.caseId}`)
+                  .setLabel('Approve & Pardon')
+                  .setStyle(ButtonStyle.Success)
+                  .setEmoji('✅'),
+                new ButtonBuilder()
+                  .setCustomId(`mod_appeal_deny:${targetGuildId}:${modCase.caseId}`)
+                  .setLabel('Deny Appeal')
+                  .setStyle(ButtonStyle.Danger)
+                  .setEmoji('❌')
+              );
+
+              await channel.send({ embeds: [reviewEmbed], components: [actionRow] }).catch(() => null);
+            }
+          }
+        }
+        return;
+      }
+
       // Embed Builder Modal
       if (interaction.customId.startsWith('embed_modal_')) {
         const channelId = interaction.customId.replace('embed_modal_', '');
@@ -983,6 +1095,240 @@ module.exports = {
     // 5. BUTTON CLICKS
     if (interaction.isButton()) {
       const customId = interaction.customId;
+
+      // ─── DISCIPLINARY APPEAL BUTTONS ────────────────────────────
+      if (customId.startsWith('mod_appeal_btn')) {
+        const parts = customId.split(':');
+        let targetGuildId = parts[1];
+        let targetCaseId = parts[2];
+
+        if (!targetCaseId && parts[1]) {
+          targetCaseId = parts[1];
+          const found = DatabaseManager.findCaseGlobally(targetCaseId);
+          if (found) targetGuildId = found.guildId;
+        }
+
+        let modCase = targetGuildId ? DatabaseManager.getCase(targetGuildId, targetCaseId) : null;
+        if (!modCase) {
+          const found = DatabaseManager.findCaseGlobally(targetCaseId);
+          if (found) {
+            targetGuildId = found.guildId;
+            modCase = found.modCase;
+          }
+        }
+
+        if (!modCase) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Case Not Found', `Disciplinary case \`${targetCaseId}\` could not be located.`)],
+            ephemeral: true
+          });
+        }
+
+        if (modCase.status === 'pardoned') {
+          return interaction.reply({
+            embeds: [EmbedUtils.info('Already Pardoned', `Case \`${modCase.caseId}\` has already been pardoned by staff.`)],
+            ephemeral: true
+          });
+        }
+
+        if (modCase.appeal && modCase.appeal.status === 'pending') {
+          return interaction.reply({
+            embeds: [EmbedUtils.warning('Appeal Pending', `You have already submitted an appeal for **${modCase.caseId}**. Staff will review it shortly.`)],
+            ephemeral: true
+          });
+        }
+
+        const modal = new ModalBuilder()
+          .setCustomId(`mod_appeal_modal:${targetGuildId}:${modCase.caseId}`)
+          .setTitle(`Appeal Case: ${modCase.caseId}`);
+
+        const reasonInput = new TextInputBuilder()
+          .setCustomId('appeal_reason')
+          .setLabel('Why should this penalty be reconsidered?')
+          .setPlaceholder('Describe what happened, any context, or why you feel this was in error...')
+          .setStyle(TextInputStyle.Paragraph)
+          .setMinLength(10)
+          .setMaxLength(1000)
+          .setRequired(true);
+
+        const extraInput = new TextInputBuilder()
+          .setCustomId('appeal_extra')
+          .setLabel('Any additional context or notes?')
+          .setPlaceholder('Optional supporting details...')
+          .setStyle(TextInputStyle.Short)
+          .setMaxLength(200)
+          .setRequired(false);
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(reasonInput),
+          new ActionRowBuilder().addComponents(extraInput)
+        );
+
+        return interaction.showModal(modal);
+      }
+
+      if (customId.startsWith('mod_appeal_approve:')) {
+        if (!interaction.member?.permissions?.has(PermissionFlagsBits.ModerateMembers) && !interaction.member?.permissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Permission Denied', 'You need **Moderate Members** or **Administrator** permissions to decide appeals.')],
+            ephemeral: true
+          });
+        }
+
+        const [, gId, cId] = customId.split(':');
+        const targetGuildId = gId || interaction.guild?.id;
+        const targetCaseId = cId;
+
+        const modCase = DatabaseManager.getCase(targetGuildId, targetCaseId);
+        if (!modCase) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Not Found', `Case \`${targetCaseId}\` could not be located.`)],
+            ephemeral: true
+          });
+        }
+
+        if (modCase.status === 'pardoned' || (modCase.appeal && modCase.appeal.status === 'approved')) {
+          return interaction.reply({
+            embeds: [EmbedUtils.warning('Already Resolved', `Case \`${modCase.caseId}\` has already been approved and pardoned.`)],
+            ephemeral: true
+          });
+        }
+
+        // Pardon Case
+        DatabaseManager.pardonCase(targetGuildId, targetCaseId, interaction.user.id, interaction.user.tag, 'Appeal approved by staff');
+        DatabaseManager.updateCase(targetGuildId, targetCaseId, {
+          appeal: {
+            ...(modCase.appeal || {}),
+            status: 'approved',
+            reviewedBy: interaction.user.tag,
+            reviewedById: interaction.user.id,
+            reviewedAt: new Date().toISOString()
+          }
+        });
+
+        // Lift timeout if active
+        if (interaction.guild) {
+          const targetMem = await interaction.guild.members.fetch(modCase.userId).catch(() => null);
+          if (targetMem && targetMem.isCommunicationDisabled()) {
+            await targetMem.timeout(null, `Appeal approved by ${interaction.user.tag}`).catch(() => null);
+          }
+        }
+
+        // Update ModLog card
+        const originalEmbed = interaction.message.embeds[0];
+        const updatedEmbed = EmbedBuilder.from(originalEmbed || {})
+          .setColor(config.embedColors?.success || '#57F287')
+          .setTitle(`⚖️ Disciplinary Appeal • ${modCase.caseId} [APPROVED]`)
+          .addFields({
+            name: '✅ Staff Decision',
+            value: `**Approved & Pardoned** by <@${interaction.user.id}> (<t:${Math.floor(Date.now() / 1000)}:R>)`,
+            inline: false
+          });
+
+        await interaction.update({
+          embeds: [updatedEmbed],
+          components: []
+        });
+
+        // Notify member in DM
+        try {
+          const appellant = await interaction.client.users.fetch(modCase.userId).catch(() => null);
+          if (appellant) {
+            const approvalDM = new EmbedBuilder()
+              .setColor(config.embedColors?.success || '#57F287')
+              .setTitle(`🎉 Disciplinary Appeal Approved • ${interaction.guild?.name || 'Server'}`)
+              .setDescription(
+                `Hello **${appellant.username}**,\n\n` +
+                `Your appeal for **${modCase.caseId}** was reviewed and **approved** by <@${interaction.user.id}> (\`${interaction.user.tag}\`).\n\n` +
+                `• **Status:** Fully Pardoned\n` +
+                `• **Penalties:** All active timeouts lifted & strikes cleared.\n\n` +
+                `Thank you for your patience and for cooperating with server guidelines!`
+              )
+              .setFooter({ text: 'Hinata Disciplinary Appeals' })
+              .setTimestamp();
+
+            await appellant.send({ embeds: [approvalDM] }).catch(() => null);
+          }
+        } catch {}
+
+        return;
+      }
+
+      if (customId.startsWith('mod_appeal_deny:')) {
+        if (!interaction.member?.permissions?.has(PermissionFlagsBits.ModerateMembers) && !interaction.member?.permissions?.has(PermissionFlagsBits.Administrator)) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Permission Denied', 'You need **Moderate Members** or **Administrator** permissions to decide appeals.')],
+            ephemeral: true
+          });
+        }
+
+        const [, gId, cId] = customId.split(':');
+        const targetGuildId = gId || interaction.guild?.id;
+        const targetCaseId = cId;
+
+        const modCase = DatabaseManager.getCase(targetGuildId, targetCaseId);
+        if (!modCase) {
+          return interaction.reply({
+            embeds: [EmbedUtils.error('Not Found', `Case \`${targetCaseId}\` could not be located.`)],
+            ephemeral: true
+          });
+        }
+
+        if (modCase.appeal && modCase.appeal.status === 'denied') {
+          return interaction.reply({
+            embeds: [EmbedUtils.warning('Already Resolved', `The appeal for \`${modCase.caseId}\` was already denied.`)],
+            ephemeral: true
+          });
+        }
+
+        // Mark appeal as denied in database
+        DatabaseManager.updateCase(targetGuildId, targetCaseId, {
+          appeal: {
+            ...(modCase.appeal || {}),
+            status: 'denied',
+            reviewedBy: interaction.user.tag,
+            reviewedById: interaction.user.id,
+            reviewedAt: new Date().toISOString()
+          }
+        });
+
+        // Update ModLog card
+        const originalEmbed = interaction.message.embeds[0];
+        const updatedEmbed = EmbedBuilder.from(originalEmbed || {})
+          .setColor(config.embedColors?.danger || '#ED4245')
+          .setTitle(`⚖️ Disciplinary Appeal • ${modCase.caseId} [DENIED]`)
+          .addFields({
+            name: '❌ Staff Decision',
+            value: `**Denied** by <@${interaction.user.id}> (<t:${Math.floor(Date.now() / 1000)}:R>)`,
+            inline: false
+          });
+
+        await interaction.update({
+          embeds: [updatedEmbed],
+          components: []
+        });
+
+        // Notify member in DM
+        try {
+          const appellant = await interaction.client.users.fetch(modCase.userId).catch(() => null);
+          if (appellant) {
+            const denialDM = new EmbedBuilder()
+              .setColor(config.embedColors?.danger || '#ED4245')
+              .setTitle(`⚖️ Disciplinary Appeal Denied • ${interaction.guild?.name || 'Server'}`)
+              .setDescription(
+                `Hello **${appellant.username}**,\n\n` +
+                `Your appeal for **${modCase.caseId}** was reviewed by server staff and **denied**.\n\n` +
+                `The applied disciplinary action and strikes remain in effect. Please review our server rules to avoid future incidents.`
+              )
+              .setFooter({ text: 'Hinata Disciplinary Appeals' })
+              .setTimestamp();
+
+            await appellant.send({ embeds: [denialDM] }).catch(() => null);
+          }
+        } catch {}
+
+        return;
+      }
 
       // ─── USER PLAYLIST BUTTONS ──────────────────────────────────
       if (customId.startsWith('pl_')) {

@@ -26,7 +26,10 @@ let store = {
   counting: {},
   afk: {},
   levels: {},
-  honor: {}
+  honor: {},
+  cases: {},
+  strikes: {},
+  threat_watchlist: {}
 };
 
 function applyParsedStore(parsed) {
@@ -42,13 +45,16 @@ function applyParsedStore(parsed) {
     counting: parsed.counting || {},
     afk: parsed.afk || {},
     levels: parsed.levels || {},
-    honor: parsed.honor || store.honor || {}
+    honor: parsed.honor || store.honor || {},
+    cases: parsed.cases || store.cases || {},
+    strikes: parsed.strikes || store.strikes || {},
+    threat_watchlist: parsed.threat_watchlist || store.threat_watchlist || {}
   };
 }
 
 function isValidDatabaseObject(obj) {
   return obj && typeof obj === 'object' && !Array.isArray(obj) &&
-    (obj.guild_settings || obj.levels || obj.warnings || obj.invites || obj.playlists || obj.tickets || obj.honor);
+    (obj.guild_settings || obj.levels || obj.warnings || obj.invites || obj.playlists || obj.tickets || obj.honor || obj.cases || obj.strikes);
 }
 
 // Multi-Stage Resilient Load Database with Zero Data Wipe Safeguards
@@ -1699,6 +1705,196 @@ class DatabaseManager {
       return true;
     }
     return false;
+  }
+
+  // ==========================================
+  // HUMAN-LIKE MODERATION & CASE SYSTEM
+  // ==========================================
+
+  static getHumanModConfig(guildId) {
+    const guild = this.getGuild(guildId);
+    const defaults = {
+      enabled: true,
+      strikeDecayDays: 7,
+      heatMonitorEnabled: true,
+      heatThreshold: 8, // messages within 10s
+      antiVoiceHopEnabled: true,
+      antiRaidThreshold: 75, // threat score > 75 triggers quarantine
+      appealChannelId: null
+    };
+    return { ...defaults, ...(guild.human_mod || {}) };
+  }
+
+  static setHumanModConfig(guildId, config) {
+    const guild = this.getGuild(guildId);
+    guild.human_mod = { ...(guild.human_mod || {}), ...config };
+    saveDatabase();
+    return guild.human_mod;
+  }
+
+  static addCase(guildId, data) {
+    if (!store.cases) store.cases = {};
+    if (!Array.isArray(store.cases[guildId])) store.cases[guildId] = [];
+
+    const existing = store.cases[guildId];
+    const maxNum = existing.length > 0 ? Math.max(...existing.map(c => c.id || 0)) : 0;
+    const num = maxNum + 1;
+    const caseId = `CASE-${1000 + num}`;
+
+    const newCase = {
+      id: num,
+      caseId,
+      guildId,
+      userId: data.userId,
+      userTag: data.userTag || 'Unknown User',
+      modId: data.modId || 'AUTOMOD',
+      modTag: data.modTag || 'Hinata AutoMod',
+      action: data.action || 'Warning',
+      reason: data.reason || 'No reason provided',
+      detail: data.detail || null,
+      channelId: data.channelId || null,
+      messageId: data.messageId || null,
+      duration: data.duration || null,
+      strikeNumber: data.strikeNumber || null,
+      timestamp: new Date().toISOString(),
+      status: 'active',
+      pardonedAt: null,
+      pardonedBy: null,
+      pardonReason: null,
+      appeal: null
+    };
+
+    store.cases[guildId].push(newCase);
+    saveDatabase();
+    return newCase;
+  }
+
+  static getCase(guildId, caseIdentifier) {
+    if (!store.cases || !Array.isArray(store.cases[guildId])) return null;
+    const search = String(caseIdentifier).trim().toUpperCase();
+    return store.cases[guildId].find(c => 
+      c.caseId.toUpperCase() === search || 
+      String(c.id) === search ||
+      c.caseId.toUpperCase() === `CASE-${search}`
+    ) || null;
+  }
+
+  static findCaseGlobally(caseIdentifier) {
+    if (!store.cases) return null;
+    const search = String(caseIdentifier).trim().toUpperCase();
+    for (const [gId, cases] of Object.entries(store.cases)) {
+      if (Array.isArray(cases)) {
+        const match = cases.find(c =>
+          c.caseId.toUpperCase() === search ||
+          String(c.id) === search ||
+          c.caseId.toUpperCase() === `CASE-${search}`
+        );
+        if (match) return { guildId: gId, modCase: match };
+      }
+    }
+    return null;
+  }
+
+  static getCases(guildId, userId = null, limit = 20) {
+    if (!store.cases || !Array.isArray(store.cases[guildId])) return [];
+    let list = store.cases[guildId];
+    if (userId) {
+      list = list.filter(c => c.userId === userId);
+    }
+    return list.slice().sort((a, b) => b.id - a.id).slice(0, limit);
+  }
+
+  static updateCase(guildId, caseIdentifier, updates = {}) {
+    const modCase = this.getCase(guildId, caseIdentifier);
+    if (!modCase) return null;
+    Object.assign(modCase, updates);
+    saveDatabase();
+    return modCase;
+  }
+
+  static pardonCase(guildId, caseIdentifier, modId, modTag, reason) {
+    const modCase = this.getCase(guildId, caseIdentifier);
+    if (!modCase) return null;
+
+    modCase.status = 'pardoned';
+    modCase.pardonedAt = new Date().toISOString();
+    modCase.pardonedBy = modTag || modId;
+    modCase.pardonReason = reason || 'Pardoned by staff';
+
+    // Also deactivate associated strike if present
+    if (modCase.userId && store.strikes && store.strikes[guildId] && Array.isArray(store.strikes[guildId][modCase.userId])) {
+      const userStrikes = store.strikes[guildId][modCase.userId];
+      const matchStrike = userStrikes.find(s => s.caseId === modCase.caseId || s.reason === modCase.reason);
+      if (matchStrike) {
+        matchStrike.active = false;
+      }
+    }
+
+    saveDatabase();
+    return modCase;
+  }
+
+  static addStrike(guildId, userId, reason, durationDays = 7, caseId = null) {
+    if (!store.strikes) store.strikes = {};
+    if (!store.strikes[guildId]) store.strikes[guildId] = {};
+    if (!Array.isArray(store.strikes[guildId][userId])) store.strikes[guildId][userId] = [];
+
+    const now = Date.now();
+    const expiresAt = now + (durationDays * 24 * 60 * 60 * 1000);
+
+    const strike = {
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      caseId: caseId || null,
+      reason: reason || 'Rule infraction',
+      timestamp: now,
+      expiresAt: expiresAt,
+      active: true
+    };
+
+    store.strikes[guildId][userId].push(strike);
+    saveDatabase();
+
+    const activeStrikes = this.getActiveStrikes(guildId, userId);
+    return {
+      totalActive: activeStrikes.length,
+      strike,
+      activeStrikes
+    };
+  }
+
+  static getActiveStrikes(guildId, userId) {
+    if (!store.strikes || !store.strikes[guildId] || !Array.isArray(store.strikes[guildId][userId])) {
+      return [];
+    }
+    const now = Date.now();
+    return store.strikes[guildId][userId].filter(s => s.active !== false && now < s.expiresAt);
+  }
+
+  static clearStrikes(guildId, userId) {
+    if (!store.strikes || !store.strikes[guildId] || !Array.isArray(store.strikes[guildId][userId])) {
+      return 0;
+    }
+    const initialLen = this.getActiveStrikes(guildId, userId).length;
+    store.strikes[guildId][userId] = store.strikes[guildId][userId].map(s => ({ ...s, active: false }));
+    saveDatabase();
+    return initialLen;
+  }
+
+  static setThreatWatch(guildId, userId, data = {}) {
+    if (!store.threat_watchlist) store.threat_watchlist = {};
+    if (!store.threat_watchlist[guildId]) store.threat_watchlist[guildId] = {};
+    store.threat_watchlist[guildId][userId] = {
+      userId,
+      ...data,
+      recordedAt: new Date().toISOString()
+    };
+    saveDatabase();
+    return store.threat_watchlist[guildId][userId];
+  }
+
+  static getThreatWatch(guildId, userId) {
+    if (!store.threat_watchlist || !store.threat_watchlist[guildId]) return null;
+    return store.threat_watchlist[guildId][userId] || null;
   }
 
   // Cloud & Backup Helpers

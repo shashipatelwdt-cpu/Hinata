@@ -287,6 +287,30 @@ const HELP_CATEGORIES = {
         syntax: '/botunmute bot:<@bot> [channel:<#channel>]',
         desc: '🔊 Unmute a channel-muted bot and restore access.',
         perms: 'Manage Channels'
+      },
+      {
+        name: '/modcase view',
+        syntax: '/modcase view case_id:<CASE-1001>',
+        desc: '🔍 View detailed moderation case file, reason, enforcing staff, and appeal status.',
+        perms: 'Moderate Members'
+      },
+      {
+        name: '/modcase history',
+        syntax: '/modcase history user:<@user>',
+        desc: '📜 View the complete disciplinary incident timeline and active strikes for a member.',
+        perms: 'Moderate Members'
+      },
+      {
+        name: '/modcase strikes',
+        syntax: '/modcase strikes user:<@user>',
+        desc: '⚡ View active strikes and 7-day automatic decay countdowns.',
+        perms: 'Moderate Members'
+      },
+      {
+        name: '/modcase pardon',
+        syntax: '/modcase pardon case_id:<CASE-1001> [reason:<text>]',
+        desc: '🕊️ Pardon an incident case, clear strikes, and lift active timeouts.',
+        perms: 'Moderate Members'
       }
     ]
   },
@@ -335,6 +359,18 @@ const HELP_CATEGORIES = {
         name: '/automod modlog',
         syntax: '/automod modlog channel:<#channel>',
         desc: 'Designate channel for all moderation and automod audit logs.',
+        perms: 'Administrator'
+      },
+      {
+        name: '/automod human-mod',
+        syntax: '/automod human-mod [enabled:<true/false>] [strike_decay_days:<1-30>] [heat_monitor:<true/false>]',
+        desc: '🧠 Configure progressive discipline, strike forgiveness decay, and anti-raid sentry.',
+        perms: 'Administrator'
+      },
+      {
+        name: '/automod anti-scam',
+        syntax: '/automod anti-scam enabled:<true/false> [action:<timeout/delete_only/kick/ban>] [duration:<1h>]',
+        desc: '🛡️ Tesseract OCR & QR Scanner defense against Steam/Nitro phishing images & grabbers.',
         perms: 'Administrator'
       }
     ]
